@@ -922,7 +922,7 @@ namespace Project
             if (string.IsNullOrWhiteSpace(symphonyNumber)) return;
 
             string projectName = row["Record Detail"]?.ToString()?.Replace(symphonyNumber + " - ", "") ?? "";
-            string status = row["JobBook Status"]?.ToString() ?? "";
+            string status = row["Status"]?.ToString() ?? "";
             string clientName = row["Billing Client Name"]?.ToString()?.Replace("&amp;", "&") ?? "";
             string marketSector = row["Client Sector"]?.ToString()?.Replace("&amp;", "&") ?? "";
             string projectType = row["DC Technique Group"]?.ToString()?.Replace("&amp;", "&") ?? "";
