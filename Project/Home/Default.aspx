@@ -67,6 +67,13 @@
                             <asp:BoundField DataField="SubType" HeaderText="SubType" />
                             <asp:BoundField DataField="Project_StartDate" HeaderText="Start Date" />
                             <asp:BoundField DataField="Project_EndDate" HeaderText="End Date" />
+                            <asp:TemplateField HeaderText="Status">
+                                <ItemTemplate>
+                                    <span class='status-badge status-<%# Eval("Status") != null ? Eval("Status").ToString().ToLower().Replace(" ", "-") : "unknown" %>'>
+                                        <%# Eval("Status") %>
+                                    </span>
+                                </ItemTemplate>
+                            </asp:TemplateField>
                         </Columns>
                     </asp:GridView>
                 </div>
@@ -183,13 +190,21 @@
                     </div>
                 </div>
 
-                <!-- Row 5: Project Owner Email -->
+                <!-- Row 5: Project Owner Email & Status -->
                 <div class="ipsos-row">
                     <div class="ipsos-col-6">
                         <div class="ipsos-form-group">
                             <label class="ipsos-form-label">Project Owner Email <span class="ipsos-required">*</span></label>
                             <asp:TextBox ID="TextBox22" runat="server" CssClass="ipsos-form-control" TextMode="Email" Enabled="false"
                                 placeholder="example@ipsos.com"></asp:TextBox>
+                        </div>
+                    </div>
+                    <div class="ipsos-col-6">
+                        <div class="ipsos-form-group">
+                            <label class="ipsos-form-label"><i class="fas fa-info-circle"></i> Status</label>
+                            <div class="status-display">
+                                <asp:Label ID="LblProjectStatus" runat="server" CssClass="status-badge-lg"></asp:Label>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -242,6 +257,88 @@
             height: 18px;
             margin-right: 0.5rem;
             accent-color: var(--ipsos-sapphire-blue);
+        }
+        /* Status Badge Styles */
+        .status-badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            border-radius: 50px;
+            text-transform: uppercase;
+        }
+        .status-badge-lg {
+            display: inline-block;
+            padding: 0.5rem 1.25rem;
+            font-size: 0.9rem;
+            font-weight: 600;
+            border-radius: 50px;
+            text-transform: uppercase;
+        }
+        .status-display {
+            padding: 0.5rem 0;
+        }
+        /* Status Colors */
+        .status-new, .status-badge-new {
+            background-color: #e3f2fd;
+            color: #1565c0;
+        }
+        .status-active, .status-badge-active {
+            background-color: #e8f5e9;
+            color: #2e7d32;
+        }
+        .status-open, .status-badge-open {
+            background-color: #e8f5e9;
+            color: #2e7d32;
+        }
+        .status-in-progress, .status-badge-in-progress {
+            background-color: #fff3e0;
+            color: #ef6c00;
+        }
+        .status-completed, .status-badge-completed {
+            background-color: #e0f2f1;
+            color: #00695c;
+        }
+        .status-closed, .status-badge-closed {
+            background-color: #eceff1;
+            color: #546e7a;
+        }
+        .status-cancelled, .status-badge-cancelled {
+            background-color: #ffebee;
+            color: #c62828;
+        }
+        .status-on-hold, .status-badge-on-hold {
+            background-color: #fce4ec;
+            color: #ad1457;
+        }
+        .status-pending, .status-badge-pending {
+            background-color: #fff8e1;
+            color: #ff8f00;
+        }
+        .status-unknown, .status-badge-unknown {
+            background-color: #f5f5f5;
+            color: #757575;
+        }
+        /* Upload Result Message */
+        .upload-result {
+            margin-top: 1rem;
+            padding: 1rem;
+            border-radius: 8px;
+        }
+        .upload-result.success {
+            background-color: #e8f5e9;
+            border: 1px solid #a5d6a7;
+            color: #2e7d32;
+        }
+        .upload-result.error {
+            background-color: #ffebee;
+            border: 1px solid #ef9a9a;
+            color: #c62828;
+        }
+        .upload-result.warning {
+            background-color: #fff3e0;
+            border: 1px solid #ffcc80;
+            color: #ef6c00;
         }
     </style>
 </asp:Content>

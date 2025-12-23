@@ -5,6 +5,7 @@ using System.Data.SqlClient;
 using System.Configuration;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Web;
 using System.Web.Script.Services;
 using System.Web.Services;
@@ -112,6 +113,11 @@ namespace Project
                 TextBox2.Text = row["Project_Number"]?.ToString() ?? "";
                 TextBox3.Text = row["Project_Name"]?.ToString() ?? "";
                 TextBox22.Text = row["Project_Owner"]?.ToString() ?? "";
+
+                // Display Status (read-only)
+                string status = row["Status"]?.ToString() ?? "Unknown";
+                LblProjectStatus.Text = status;
+                LblProjectStatus.CssClass = "status-badge-lg status-" + status.ToLower().Replace(" ", "-");
 
                 // Parse dates safely
                 if (row["Project_StartDate"] != DBNull.Value && DateTime.TryParse(row["Project_StartDate"].ToString(), out DateTime stDate))
@@ -654,8 +660,27 @@ namespace Project
                 }
                 catch { }
 
+                // Show detailed upload results
+                string resultMessage = $"<div class='upload-result success'><strong><i class='fas fa-check-circle'></i> Upload Complete!</strong><br/>" +
+                    $"<i class='fas fa-plus-circle'></i> New projects added: <strong>{_insertedCount}</strong><br/>" +
+                    $"<i class='fas fa-sync-alt'></i> Projects updated: <strong>{_updatedCount}</strong>";
+
+                if (_skippedCount > 0)
+                {
+                    resultMessage += $"<br/><i class='fas fa-exclamation-triangle' style='color: #ef6c00;'></i> Skipped (older data): <strong>{_skippedCount}</strong>";
+                    if (_skippedProjects.Count > 0 && _skippedProjects.Count <= 10)
+                    {
+                        resultMessage += $"<br/><small>Skipped projects: {string.Join(", ", _skippedProjects)}</small>";
+                    }
+                    else if (_skippedProjects.Count > 10)
+                    {
+                        resultMessage += $"<br/><small>Skipped projects: {string.Join(", ", _skippedProjects.Take(10))}... and {_skippedProjects.Count - 10} more</small>";
+                    }
+                }
+                resultMessage += "</div>";
+
                 LblStatus.ForeColor = System.Drawing.Color.Green;
-                LblStatus.Text = "Upload and import successful!";
+                LblStatus.Text = resultMessage;
             }
             catch (Exception ex)
             {
@@ -705,9 +730,19 @@ namespace Project
            
         }
 
+        // Counter for tracking upload results
+        private int _updatedCount = 0;
+        private int _insertedCount = 0;
+        private int _skippedCount = 0;
+        private List<string> _skippedProjects = new List<string>();
+
         private void InsertDataToDatabase(DataTable dataTable)
         {
             string connectionString = _conn;
+            _updatedCount = 0;
+            _insertedCount = 0;
+            _skippedCount = 0;
+            _skippedProjects = new List<string>();
 
             using (SqlConnection conm = new SqlConnection(connectionString))
             {
@@ -832,33 +867,74 @@ namespace Project
                         }
                         try
                         {
-                            if (dtProject.Rows.Count > 0 && a == true && b == true && Symphony_Number.Length > 0)
+                            // Check if project exists and compare dates
+                            if (dtProject.Rows.Count > 0)
                             {
-                                _core.DatabaseInsert(_conn, "UPDATE [dbo].[Project] SET  [Project_StartDate] = '" + ProjectStartDate + "' ,[Project_EndDate] = '" + ProjectEndDate + "', [Status] = '" + Status + "', [Project_Owner] = '"+Project_Owner+ "',ClientName_ID = '"+ClientID+ "',Creator = '" + Session["Email"].ToString() +"' Where REPLACE(Symphony_Number, '-', '') = '" + row["Job ID"].ToString() + "'");
+                                // Get existing project's end date from database
+                                DateTime? existingEndDate = null;
+                                if (dtProject.Rows[0]["Project_EndDate"] != DBNull.Value)
+                                {
+                                    existingEndDate = Convert.ToDateTime(dtProject.Rows[0]["Project_EndDate"]);
+                                }
+
+                                // Parse new end date from file
+                                DateTime? newEndDate = null;
+                                if (b && !string.IsNullOrEmpty(ProjectEndDate))
+                                {
+                                    newEndDate = DateTime.ParseExact(ProjectEndDate, "yyyy-MM-dd", CultureInfo.InvariantCulture);
+                                }
+
+                                // Check if new data is newer than existing data
+                                bool shouldUpdate = true;
+                                if (existingEndDate.HasValue && newEndDate.HasValue)
+                                {
+                                    // Only update if new end date is equal to or later than existing
+                                    if (newEndDate.Value < existingEndDate.Value)
+                                    {
+                                        // Skip this record - data in file is older
+                                        _skippedCount++;
+                                        _skippedProjects.Add(Symphony_Number);
+                                        shouldUpdate = false;
+                                    }
+                                }
+
+                                if (shouldUpdate && Symphony_Number.Length > 0)
+                                {
+                                    if (a == true && b == true)
+                                    {
+                                        _core.DatabaseInsert(_conn, "UPDATE [dbo].[Project] SET [Project_StartDate] = '" + ProjectStartDate + "', [Project_EndDate] = '" + ProjectEndDate + "', [Status] = '" + Status + "', [Project_Owner] = '" + Project_Owner + "', ClientName_ID = '" + ClientID + "', Creator = '" + Session["Email"].ToString() + "' Where REPLACE(Symphony_Number, '-', '') = '" + row["Job ID"].ToString() + "'");
+                                    }
+                                    else if (a == true && b == false)
+                                    {
+                                        _core.DatabaseInsert(_conn, "UPDATE [dbo].[Project] SET [Project_StartDate] = '" + ProjectStartDate + "', [Project_EndDate] = '" + ProjectEndDate + "', [Status] = '" + Status + "', [Project_Owner] = '" + Project_Owner + "', ClientName_ID = '" + ClientID + "', Creator = '" + Session["Email"].ToString() + "' Where REPLACE(Symphony_Number, '-', '') = '" + row["Job ID"].ToString() + "'");
+                                    }
+                                    else if (a == false && b == true)
+                                    {
+                                        _core.DatabaseInsert(_conn, "UPDATE [dbo].[Project] SET [Project_StartDate] = '" + ProjectStartDate + "', [Project_EndDate] = '" + ProjectEndDate + "', [Status] = '" + Status + "', [Project_Owner] = '" + Project_Owner + "', ClientName_ID = '" + ClientID + "', Creator = '" + Session["Email"].ToString() + "' Where REPLACE(Symphony_Number, '-', '') = '" + row["Job ID"].ToString() + "'");
+                                    }
+                                    else if (a == false && b == false)
+                                    {
+                                        _core.DatabaseInsert(_conn, "UPDATE [dbo].[Project] SET [Project_StartDate] = NULL, [Project_EndDate] = NULL, [Status] = '" + Status + "', [Project_Owner] = '" + Project_Owner + "', ClientName_ID = '" + ClientID + "', Creator = '" + Session["Email"].ToString() + "' Where REPLACE(Symphony_Number, '-', '') = '" + row["Job ID"].ToString() + "'");
+                                    }
+                                    _updatedCount++;
+                                }
                             }
-                            else if (dtProject.Rows.Count > 0 && a == true && b == false && Symphony_Number.Length > 0)
+                            else if (dtProject.Rows.Count == 0 && Symphony_Number.Length > 0)
                             {
-                                _core.DatabaseInsert(_conn, "UPDATE [dbo].[Project] SET  [Project_StartDate] = '" + ProjectStartDate + "' ,[Project_EndDate] = '" + ProjectEndDate + "', [Status] = '" + Status + "', [Project_Owner] = '"+Project_Owner+ "',ClientName_ID = '"+ClientID+ "',Creator = '" + Session["Email"].ToString() +"' Where REPLACE(Symphony_Number, '-', '') = '" + row["Job ID"].ToString() + "'");
-                            }
-                            else if (dtProject.Rows.Count > 0 && a == false && b == true && Symphony_Number.Length > 0)
-                            {
-                                _core.DatabaseInsert(_conn, "UPDATE [dbo].[Project] SET  [Project_StartDate] = '" + ProjectStartDate + "' ,[Project_EndDate] = '" + ProjectEndDate + "', [Status] = '" + Status + "', [Project_Owner] = '"+Project_Owner+ "',ClientName_ID = '"+ClientID+ "',Creator = '" + Session["Email"].ToString() +"' Where REPLACE(Symphony_Number, '-', '') = '" + row["Job ID"].ToString() + "'");
-                            }
-                            else if (dtProject.Rows.Count > 0 && a == false && b == false && Symphony_Number.Length > 0)
-                            {
-                                _core.DatabaseInsert(_conn, "UPDATE [dbo].[Project] SET  [Project_StartDate] = NULL ,[Project_EndDate] = NULL, [Status] = '" + Status + "', [Project_Owner] = '"+Project_Owner+ "',ClientName_ID = '"+ClientID+ "',Creator = '" + Session["Email"].ToString() +"'  Where REPLACE(Symphony_Number, '-', '') = '" + row["Job ID"].ToString() + "'");
-                            }
-                            else if (dtProject.Rows.Count == 0 && a == true && b == true && Symphony_Number.Length > 0)
-                            {
-                                _core.DatabaseInsert(_conn, "INSERT INTO [dbo].[Project] ([Symphony_Number],[Project_Name],[Project_Type_ID],[Project_SubType_ID],[Project_StartDate],[Project_EndDate],[Project_Owner],[Creator],[Created_DateTime],[Status],[ClientName_ID],[MarketSector_ID]) VALUES ('" + ChangeSymNumber(Symphony_Number) + "','" + Project_Name.Replace("'", "''") + "','" + ProjectTypeID + "','" + SubProjectTypeID + "','" + Convert.ToDateTime(StartDate).ToString("yyyy-MM-dd") + "','" + Convert.ToDateTime(EndDate).ToString("yyyy-MM-dd") + "','" + Project_Owner + "','" + Session["Email"].ToString() + "','" + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + "','" + Status + "','" + ClientID + "','" + MarketSectorID + "')");
-                            }
-                            else if (dtProject.Rows.Count == 0 && a == true && b == false && Symphony_Number.Length > 0)
-                            {
-                                _core.DatabaseInsert(_conn, "INSERT INTO [dbo].[Project] ([Symphony_Number],[Project_Name],[Project_Type_ID],[Project_SubType_ID],[Project_StartDate],[Project_EndDate],[Project_Owner],[Creator],[Created_DateTime],[Status],[ClientName_ID],[MarketSector_ID]) VALUES ('" + ChangeSymNumber(Symphony_Number) + "','" + Project_Name.Replace("'", "''") + "','" + ProjectTypeID + "','" + SubProjectTypeID + "','" + Convert.ToDateTime(StartDate).ToString("yyyy-MM-dd") + "',NULL,'" + Project_Owner + "','" + Session["Email"].ToString() + "','" + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + "','" + Status + "','" + ClientID + "','" + MarketSectorID + "')");
-                            }
-                            else if (dtProject.Rows.Count == 0 && a == false && b == false && Symphony_Number.Length > 0)
-                            {
-                                _core.DatabaseInsert(_conn, "INSERT INTO [dbo].[Project] ([Symphony_Number],[Project_Name],[Project_Type_ID],[Project_SubType_ID],[Project_StartDate],[Project_EndDate],[Project_Owner],[Creator],[Created_DateTime],[Status],[ClientName_ID],[MarketSector_ID]) VALUES ('" + ChangeSymNumber(Symphony_Number) + "','" + Project_Name.Replace("'", "''") + "','" + ProjectTypeID + "','" + SubProjectTypeID + "',NULL,NULL,'" + Project_Owner + "','" + Session["Email"].ToString() + "','" + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + "','" + Status + "','" + ClientID + "','" + MarketSectorID + "')");
+                                // New project - insert
+                                if (a == true && b == true)
+                                {
+                                    _core.DatabaseInsert(_conn, "INSERT INTO [dbo].[Project] ([Symphony_Number],[Project_Name],[Project_Type_ID],[Project_SubType_ID],[Project_StartDate],[Project_EndDate],[Project_Owner],[Creator],[Created_DateTime],[Status],[ClientName_ID],[MarketSector_ID]) VALUES ('" + ChangeSymNumber(Symphony_Number) + "','" + Project_Name.Replace("'", "''") + "','" + ProjectTypeID + "','" + SubProjectTypeID + "','" + Convert.ToDateTime(StartDate).ToString("yyyy-MM-dd") + "','" + Convert.ToDateTime(EndDate).ToString("yyyy-MM-dd") + "','" + Project_Owner + "','" + Session["Email"].ToString() + "','" + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + "','" + Status + "','" + ClientID + "','" + MarketSectorID + "')");
+                                }
+                                else if (a == true && b == false)
+                                {
+                                    _core.DatabaseInsert(_conn, "INSERT INTO [dbo].[Project] ([Symphony_Number],[Project_Name],[Project_Type_ID],[Project_SubType_ID],[Project_StartDate],[Project_EndDate],[Project_Owner],[Creator],[Created_DateTime],[Status],[ClientName_ID],[MarketSector_ID]) VALUES ('" + ChangeSymNumber(Symphony_Number) + "','" + Project_Name.Replace("'", "''") + "','" + ProjectTypeID + "','" + SubProjectTypeID + "','" + Convert.ToDateTime(StartDate).ToString("yyyy-MM-dd") + "',NULL,'" + Project_Owner + "','" + Session["Email"].ToString() + "','" + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + "','" + Status + "','" + ClientID + "','" + MarketSectorID + "')");
+                                }
+                                else if (a == false && b == false)
+                                {
+                                    _core.DatabaseInsert(_conn, "INSERT INTO [dbo].[Project] ([Symphony_Number],[Project_Name],[Project_Type_ID],[Project_SubType_ID],[Project_StartDate],[Project_EndDate],[Project_Owner],[Creator],[Created_DateTime],[Status],[ClientName_ID],[MarketSector_ID]) VALUES ('" + ChangeSymNumber(Symphony_Number) + "','" + Project_Name.Replace("'", "''") + "','" + ProjectTypeID + "','" + SubProjectTypeID + "',NULL,NULL,'" + Project_Owner + "','" + Session["Email"].ToString() + "','" + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + "','" + Status + "','" + ClientID + "','" + MarketSectorID + "')");
+                                }
+                                _insertedCount++;
                             }
                         }
                         catch { }
