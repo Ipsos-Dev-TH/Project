@@ -661,25 +661,43 @@ namespace Project
                 catch { }
 
                 // Show detailed upload results
-                string resultMessage = $"<div class='upload-result success'><strong><i class='fas fa-check-circle'></i> Upload Complete!</strong><br/>" +
-                    $"<i class='fas fa-plus-circle'></i> New projects added: <strong>{_insertedCount}</strong><br/>" +
-                    $"<i class='fas fa-sync-alt'></i> Projects updated: <strong>{_updatedCount}</strong>";
+                string statusClass = _errorCount > 0 ? "warning" : "success";
+                string statusIcon = _errorCount > 0 ? "exclamation-circle" : "check-circle";
+
+                string resultMessage = $"<div class='upload-result {statusClass}'>" +
+                    $"<strong><i class='fas fa-{statusIcon}'></i> Upload Complete!</strong><br/>" +
+                    $"<i class='fas fa-plus-circle' style='color: #2e7d32;'></i> New projects added: <strong>{_insertedCount}</strong><br/>" +
+                    $"<i class='fas fa-sync-alt' style='color: #1565c0;'></i> Projects updated: <strong>{_updatedCount}</strong>";
 
                 if (_skippedCount > 0)
                 {
-                    resultMessage += $"<br/><i class='fas fa-exclamation-triangle' style='color: #ef6c00;'></i> Skipped (older data): <strong>{_skippedCount}</strong>";
-                    if (_skippedProjects.Count > 0 && _skippedProjects.Count <= 10)
+                    resultMessage += $"<br/><i class='fas fa-forward' style='color: #ef6c00;'></i> Skipped (older data): <strong>{_skippedCount}</strong>";
+                    if (_skippedProjects.Count > 0 && _skippedProjects.Count <= 5)
                     {
-                        resultMessage += $"<br/><small>Skipped projects: {string.Join(", ", _skippedProjects)}</small>";
+                        resultMessage += $"<br/><small style='color: #666;'>Skipped: {string.Join(", ", _skippedProjects)}</small>";
                     }
-                    else if (_skippedProjects.Count > 10)
+                    else if (_skippedProjects.Count > 5)
                     {
-                        resultMessage += $"<br/><small>Skipped projects: {string.Join(", ", _skippedProjects.Take(10))}... and {_skippedProjects.Count - 10} more</small>";
+                        resultMessage += $"<br/><small style='color: #666;'>Skipped: {string.Join(", ", _skippedProjects.Take(5))}... (+{_skippedProjects.Count - 5} more)</small>";
                     }
                 }
+
+                if (_errorCount > 0)
+                {
+                    resultMessage += $"<br/><i class='fas fa-times-circle' style='color: #c62828;'></i> Errors: <strong>{_errorCount}</strong>";
+                    if (_errorProjects.Count > 0 && _errorProjects.Count <= 5)
+                    {
+                        resultMessage += $"<br/><small style='color: #c62828;'>Failed: {string.Join(", ", _errorProjects)}</small>";
+                    }
+                    else if (_errorProjects.Count > 5)
+                    {
+                        resultMessage += $"<br/><small style='color: #c62828;'>Failed: {string.Join(", ", _errorProjects.Take(5))}... (+{_errorProjects.Count - 5} more)</small>";
+                    }
+                }
+
                 resultMessage += "</div>";
 
-                LblStatus.ForeColor = System.Drawing.Color.Green;
+                LblStatus.ForeColor = _errorCount > 0 ? System.Drawing.Color.Orange : System.Drawing.Color.Green;
                 LblStatus.Text = resultMessage;
             }
             catch (Exception ex)
@@ -734,215 +752,393 @@ namespace Project
         private int _updatedCount = 0;
         private int _insertedCount = 0;
         private int _skippedCount = 0;
+        private int _errorCount = 0;
         private List<string> _skippedProjects = new List<string>();
+        private List<string> _errorProjects = new List<string>();
+
+        // Cache dictionaries for lookup data
+        private Dictionary<string, int> _clientCache;
+        private Dictionary<string, int> _marketSectorCache;
+        private Dictionary<string, int> _projectTypeCache;
+        private Dictionary<string, (int TypeId, int SubTypeId)> _subTypeCache;
+        private Dictionary<string, (int Id, DateTime? EndDate)> _existingProjectsCache;
 
         private void InsertDataToDatabase(DataTable dataTable)
         {
-            string connectionString = _conn;
+            // Reset counters
             _updatedCount = 0;
             _insertedCount = 0;
             _skippedCount = 0;
+            _errorCount = 0;
             _skippedProjects = new List<string>();
+            _errorProjects = new List<string>();
 
-            using (SqlConnection conm = new SqlConnection(connectionString))
+            string userEmail = Session["Email"]?.ToString() ?? "";
+
+            using (SqlConnection conn = new SqlConnection(_conn))
             {
-                conm.Open();
+                conn.Open();
 
-                foreach (DataRow row in dataTable.Rows)
+                // Load all lookup data into cache (reduces queries from N*6 to just 5)
+                LoadLookupCaches(conn);
+
+                // Use transaction for data integrity
+                using (SqlTransaction transaction = conn.BeginTransaction())
                 {
                     try
                     {
-                        // Adjust column names to match your Excel and DB schema
-                        string Symphony_Number = row["Job ID"].ToString();
-                        string Project_Name = row["Record Detail"].ToString().Replace(Symphony_Number + " - ", "");
-                        string Status = row["JobBook Status"].ToString();
-                        string ClientID = "0";
-                        string ClientName = row["Billing Client Name"].ToString();
-                        string Project_Owner = "";
-                        try {
-                        Project_Owner = row["Job Owner"].ToString().Split(',')[1].Replace(" ", "") + "." + row["Job Owner"].ToString().Split(',')[0].Replace(" ", "") + "@ipsos.com";
-                        }
-                        catch { }
-                        if (Project_Owner.Length == 0)
+                        foreach (DataRow row in dataTable.Rows)
                         {
-                            try {
-                                Project_Owner = row["Job Manager"].ToString().Split(',')[1].Replace(" ", "") + "." + row["Job Manager"].ToString().Split(',')[0].Replace(" ", "") + "@ipsos.com";
-                            }
-                            catch { }
-                        }
-                        if (Project_Owner.Length == 0)
-                        {
-                            try {
-                                Project_Owner = row["Job Owner"].ToString().Split(',')[1].Replace(" ", "") + "." + row["Job Owner"].ToString().Split(',')[0].Replace(" ", "") + "@ipsos.com";
-                            }
-                            catch { }
-                        }
-                        string MarketSectorID = "0";
-                        string MarketSector = row["Client Sector"].ToString();
-                        string ProjectTypeID = "0";
-                        string Project_Type = row["DC Technique Group"].ToString();
-                        string SubProjectTypeID = "0";
-                        string SubProject_Type = row["DC Mode"].ToString();
-                        string StartDate = row["Job Start Date"].ToString();
-                        string EndDate = row["Job End Date"].ToString();
-
-                        DataTable dtClient = _core.DatabaseQuery(_conn, "SELECT * FROM [Project].[dbo].[ClientName] Where ClientName like '" + ClientName.Replace("'", "''").Replace("&amp;", "&") + "'");
-                        if (dtClient.Rows.Count > 0)
-                        {
-                            ClientID = dtClient.Rows[0]["ID"].ToString();
-                        }
-                        else
-                        {
-                            ClientID = Core.ExecuteScalar(_conn, "INSERT INTO [Project].[dbo].[ClientName] ([ClientName]) VALUES ('" + ClientName.Replace("'", "''").Replace("&amp;", "&") + "');").ToString();
-                        }
-
-                        DataTable dtMarketSector = _core.DatabaseQuery(_conn, "SELECT * FROM [Project].[dbo].[MarketSector] Where SectorName like '" + MarketSector.Replace("&amp;", "&") + "'");
-                        if (dtMarketSector.Rows.Count > 0)
-                        {
-                            MarketSectorID = dtMarketSector.Rows[0]["ID"].ToString();
-                        }
-                        else
-                        {
-                            MarketSectorID = Core.ExecuteScalar(_conn, "INSERT INTO [Project].[dbo].[MarketSector] ([SectorName]) VALUES ('" + MarketSector.Replace("&amp;", "&") + "');").ToString();
-                        }
-
-                        DataTable dtSubProjectType = _core.DatabaseQuery(_conn, "SELECT * FROM [Project].[dbo].[Project_SubType] Where SubType like '" + SubProject_Type.Replace("&amp;", "&") + "'");
-                        if (dtSubProjectType.Rows.Count > 0)
-                        {
-                            ProjectTypeID = dtSubProjectType.Rows[0]["Project_Type_ID"].ToString();
-                            SubProjectTypeID = dtSubProjectType.Rows[0]["ID"].ToString();
-                        }
-                        else
-                        {
-                            ProjectTypeID = Core.ExecuteScalar(_conn, "INSERT INTO [Project].[dbo].[Project_Type] ([Project_Type]) VALUES ('" + Project_Type.Replace("&amp;", "&") + "');").ToString();
-                            SubProjectTypeID = Core.ExecuteScalar(_conn, "INSERT INTO [Project].[dbo].[Project_SubType] ([Project_Type_ID],[SubType]) VALUES (" + ProjectTypeID + ",'" + SubProject_Type.Replace("&amp;", "&") + "');").ToString();
-                        }
-
-                        DataTable dtProjectType = _core.DatabaseQuery(_conn, "SELECT * FROM [Project].[dbo].[Project_Type] Where Project_Type like '" + Project_Type.Replace("&amp;", "&") + "'");
-                        if (dtProjectType.Rows.Count > 0)
-                        {
-                            ProjectTypeID = dtProjectType.Rows[0]["ID"].ToString();
-                        }
-                        else
-                        {
-                            ProjectTypeID = Core.ExecuteScalar(_conn, "INSERT INTO [Project].[dbo].[Project_Type] ([Project_Type]) VALUES ('" + Project_Type + "');").ToString();
-                        }
-
-
-                        DataTable dtProject = _core.DatabaseQuery(_conn, "SELECT * FROM [Project].[dbo].[Project] Where REPLACE(Symphony_Number, '-', '') = '" + row["Job ID"].ToString() + "'");
-
-                        string ProjectStartDate = "";
-                        string ProjectEndDate = "";
-                        bool a = true;
-                        bool b = true;
-                        try
-                        {
-                            ProjectStartDate = Convert.ToDateTime(StartDate).ToString("yyyy-MM-dd");
-                        }
-                        catch
-                        {
-                            a = false;
-                        }
-
-                        try
-                        {
-                            ProjectEndDate = Convert.ToDateTime(EndDate).ToString("yyyy-MM-dd");
-                        }
-                        catch
-                        {
-                            b = false;
-                        }
-                        DateTime parsedDate;
-                        if (DateTime.TryParseExact(EndDate, "yyyy-MM-dd",
-    CultureInfo.InvariantCulture,
-    DateTimeStyles.None,
-    out parsedDate))
-                        {
-                            ProjectEndDate = parsedDate.ToString("yyyy-MM-dd");
-                            b = true;
-                        }
-                        else
-                        {
-                            b = false;
-                        }
-                        try
-                        {
-                            // Check if project exists and compare dates
-                            if (dtProject.Rows.Count > 0)
+                            try
                             {
-                                // Get existing project's end date from database
-                                DateTime? existingEndDate = null;
-                                if (dtProject.Rows[0]["Project_EndDate"] != DBNull.Value)
-                                {
-                                    existingEndDate = Convert.ToDateTime(dtProject.Rows[0]["Project_EndDate"]);
-                                }
-
-                                // Parse new end date from file
-                                DateTime? newEndDate = null;
-                                if (b && !string.IsNullOrEmpty(ProjectEndDate))
-                                {
-                                    newEndDate = DateTime.ParseExact(ProjectEndDate, "yyyy-MM-dd", CultureInfo.InvariantCulture);
-                                }
-
-                                // Check if new data is newer than existing data
-                                bool shouldUpdate = true;
-                                if (existingEndDate.HasValue && newEndDate.HasValue)
-                                {
-                                    // Only update if new end date is equal to or later than existing
-                                    if (newEndDate.Value < existingEndDate.Value)
-                                    {
-                                        // Skip this record - data in file is older
-                                        _skippedCount++;
-                                        _skippedProjects.Add(Symphony_Number);
-                                        shouldUpdate = false;
-                                    }
-                                }
-
-                                if (shouldUpdate && Symphony_Number.Length > 0)
-                                {
-                                    if (a == true && b == true)
-                                    {
-                                        _core.DatabaseInsert(_conn, "UPDATE [dbo].[Project] SET [Project_StartDate] = '" + ProjectStartDate + "', [Project_EndDate] = '" + ProjectEndDate + "', [Status] = '" + Status + "', [Project_Owner] = '" + Project_Owner + "', ClientName_ID = '" + ClientID + "', Creator = '" + Session["Email"].ToString() + "' Where REPLACE(Symphony_Number, '-', '') = '" + row["Job ID"].ToString() + "'");
-                                    }
-                                    else if (a == true && b == false)
-                                    {
-                                        _core.DatabaseInsert(_conn, "UPDATE [dbo].[Project] SET [Project_StartDate] = '" + ProjectStartDate + "', [Project_EndDate] = '" + ProjectEndDate + "', [Status] = '" + Status + "', [Project_Owner] = '" + Project_Owner + "', ClientName_ID = '" + ClientID + "', Creator = '" + Session["Email"].ToString() + "' Where REPLACE(Symphony_Number, '-', '') = '" + row["Job ID"].ToString() + "'");
-                                    }
-                                    else if (a == false && b == true)
-                                    {
-                                        _core.DatabaseInsert(_conn, "UPDATE [dbo].[Project] SET [Project_StartDate] = '" + ProjectStartDate + "', [Project_EndDate] = '" + ProjectEndDate + "', [Status] = '" + Status + "', [Project_Owner] = '" + Project_Owner + "', ClientName_ID = '" + ClientID + "', Creator = '" + Session["Email"].ToString() + "' Where REPLACE(Symphony_Number, '-', '') = '" + row["Job ID"].ToString() + "'");
-                                    }
-                                    else if (a == false && b == false)
-                                    {
-                                        _core.DatabaseInsert(_conn, "UPDATE [dbo].[Project] SET [Project_StartDate] = NULL, [Project_EndDate] = NULL, [Status] = '" + Status + "', [Project_Owner] = '" + Project_Owner + "', ClientName_ID = '" + ClientID + "', Creator = '" + Session["Email"].ToString() + "' Where REPLACE(Symphony_Number, '-', '') = '" + row["Job ID"].ToString() + "'");
-                                    }
-                                    _updatedCount++;
-                                }
+                                ProcessDataRow(row, conn, transaction, userEmail);
                             }
-                            else if (dtProject.Rows.Count == 0 && Symphony_Number.Length > 0)
+                            catch (Exception ex)
                             {
-                                // New project - insert
-                                if (a == true && b == true)
-                                {
-                                    _core.DatabaseInsert(_conn, "INSERT INTO [dbo].[Project] ([Symphony_Number],[Project_Name],[Project_Type_ID],[Project_SubType_ID],[Project_StartDate],[Project_EndDate],[Project_Owner],[Creator],[Created_DateTime],[Status],[ClientName_ID],[MarketSector_ID]) VALUES ('" + ChangeSymNumber(Symphony_Number) + "','" + Project_Name.Replace("'", "''") + "','" + ProjectTypeID + "','" + SubProjectTypeID + "','" + Convert.ToDateTime(StartDate).ToString("yyyy-MM-dd") + "','" + Convert.ToDateTime(EndDate).ToString("yyyy-MM-dd") + "','" + Project_Owner + "','" + Session["Email"].ToString() + "','" + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + "','" + Status + "','" + ClientID + "','" + MarketSectorID + "')");
-                                }
-                                else if (a == true && b == false)
-                                {
-                                    _core.DatabaseInsert(_conn, "INSERT INTO [dbo].[Project] ([Symphony_Number],[Project_Name],[Project_Type_ID],[Project_SubType_ID],[Project_StartDate],[Project_EndDate],[Project_Owner],[Creator],[Created_DateTime],[Status],[ClientName_ID],[MarketSector_ID]) VALUES ('" + ChangeSymNumber(Symphony_Number) + "','" + Project_Name.Replace("'", "''") + "','" + ProjectTypeID + "','" + SubProjectTypeID + "','" + Convert.ToDateTime(StartDate).ToString("yyyy-MM-dd") + "',NULL,'" + Project_Owner + "','" + Session["Email"].ToString() + "','" + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + "','" + Status + "','" + ClientID + "','" + MarketSectorID + "')");
-                                }
-                                else if (a == false && b == false)
-                                {
-                                    _core.DatabaseInsert(_conn, "INSERT INTO [dbo].[Project] ([Symphony_Number],[Project_Name],[Project_Type_ID],[Project_SubType_ID],[Project_StartDate],[Project_EndDate],[Project_Owner],[Creator],[Created_DateTime],[Status],[ClientName_ID],[MarketSector_ID]) VALUES ('" + ChangeSymNumber(Symphony_Number) + "','" + Project_Name.Replace("'", "''") + "','" + ProjectTypeID + "','" + SubProjectTypeID + "',NULL,NULL,'" + Project_Owner + "','" + Session["Email"].ToString() + "','" + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + "','" + Status + "','" + ClientID + "','" + MarketSectorID + "')");
-                                }
-                                _insertedCount++;
+                                string jobId = row["Job ID"]?.ToString() ?? "Unknown";
+                                _errorCount++;
+                                _errorProjects.Add(jobId);
+                                System.Diagnostics.Debug.WriteLine($"Error processing row {jobId}: {ex.Message}");
                             }
                         }
-                        catch { }
+
+                        // Commit transaction if all rows processed successfully
+                        transaction.Commit();
                     }
-                    catch { }
+                    catch (Exception ex)
+                    {
+                        // Rollback on critical error
+                        transaction.Rollback();
+                        System.Diagnostics.Debug.WriteLine($"Transaction rolled back: {ex.Message}");
+                        throw;
+                    }
+                }
+            }
+        }
+
+        private void LoadLookupCaches(SqlConnection conn)
+        {
+            // Cache ClientName
+            _clientCache = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            using (SqlCommand cmd = new SqlCommand("SELECT ID, ClientName FROM [ClientName]", conn))
+            using (SqlDataReader reader = cmd.ExecuteReader())
+            {
+                while (reader.Read())
+                {
+                    string name = reader["ClientName"]?.ToString() ?? "";
+                    if (!string.IsNullOrEmpty(name) && !_clientCache.ContainsKey(name))
+                        _clientCache[name] = Convert.ToInt32(reader["ID"]);
                 }
             }
 
+            // Cache MarketSector
+            _marketSectorCache = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            using (SqlCommand cmd = new SqlCommand("SELECT ID, SectorName FROM [MarketSector]", conn))
+            using (SqlDataReader reader = cmd.ExecuteReader())
+            {
+                while (reader.Read())
+                {
+                    string name = reader["SectorName"]?.ToString() ?? "";
+                    if (!string.IsNullOrEmpty(name) && !_marketSectorCache.ContainsKey(name))
+                        _marketSectorCache[name] = Convert.ToInt32(reader["ID"]);
+                }
+            }
+
+            // Cache Project_Type
+            _projectTypeCache = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            using (SqlCommand cmd = new SqlCommand("SELECT ID, Project_Type FROM [Project_Type]", conn))
+            using (SqlDataReader reader = cmd.ExecuteReader())
+            {
+                while (reader.Read())
+                {
+                    string name = reader["Project_Type"]?.ToString() ?? "";
+                    if (!string.IsNullOrEmpty(name) && !_projectTypeCache.ContainsKey(name))
+                        _projectTypeCache[name] = Convert.ToInt32(reader["ID"]);
+                }
+            }
+
+            // Cache Project_SubType
+            _subTypeCache = new Dictionary<string, (int, int)>(StringComparer.OrdinalIgnoreCase);
+            using (SqlCommand cmd = new SqlCommand("SELECT ID, Project_Type_ID, SubType FROM [Project_SubType]", conn))
+            using (SqlDataReader reader = cmd.ExecuteReader())
+            {
+                while (reader.Read())
+                {
+                    string name = reader["SubType"]?.ToString() ?? "";
+                    if (!string.IsNullOrEmpty(name) && !_subTypeCache.ContainsKey(name))
+                        _subTypeCache[name] = (Convert.ToInt32(reader["Project_Type_ID"]), Convert.ToInt32(reader["ID"]));
+                }
+            }
+
+            // Cache existing projects with their end dates
+            _existingProjectsCache = new Dictionary<string, (int, DateTime?)>(StringComparer.OrdinalIgnoreCase);
+            using (SqlCommand cmd = new SqlCommand("SELECT ID, REPLACE(Symphony_Number, '-', '') as JobID, Project_EndDate FROM [Project]", conn))
+            using (SqlDataReader reader = cmd.ExecuteReader())
+            {
+                while (reader.Read())
+                {
+                    string jobId = reader["JobID"]?.ToString() ?? "";
+                    DateTime? endDate = reader["Project_EndDate"] != DBNull.Value
+                        ? Convert.ToDateTime(reader["Project_EndDate"])
+                        : (DateTime?)null;
+                    if (!string.IsNullOrEmpty(jobId) && !_existingProjectsCache.ContainsKey(jobId))
+                        _existingProjectsCache[jobId] = (Convert.ToInt32(reader["ID"]), endDate);
+                }
+            }
+        }
+
+        private void ProcessDataRow(DataRow row, SqlConnection conn, SqlTransaction transaction, string userEmail)
+        {
+            // Extract data from row
+            string symphonyNumber = row["Job ID"]?.ToString() ?? "";
+            if (string.IsNullOrWhiteSpace(symphonyNumber)) return;
+
+            string projectName = row["Record Detail"]?.ToString()?.Replace(symphonyNumber + " - ", "") ?? "";
+            string status = row["JobBook Status"]?.ToString() ?? "";
+            string clientName = row["Billing Client Name"]?.ToString()?.Replace("&amp;", "&") ?? "";
+            string marketSector = row["Client Sector"]?.ToString()?.Replace("&amp;", "&") ?? "";
+            string projectType = row["DC Technique Group"]?.ToString()?.Replace("&amp;", "&") ?? "";
+            string subProjectType = row["DC Mode"]?.ToString()?.Replace("&amp;", "&") ?? "";
+            string startDateStr = row["Job Start Date"]?.ToString() ?? "";
+            string endDateStr = row["Job End Date"]?.ToString() ?? "";
+
+            // Parse project owner email
+            string projectOwner = ParseProjectOwner(row);
+
+            // Get or create lookup IDs
+            int clientId = GetOrCreateClientId(clientName, conn, transaction);
+            int marketSectorId = GetOrCreateMarketSectorId(marketSector, conn, transaction);
+            var (projectTypeId, subTypeId) = GetOrCreateProjectTypeIds(projectType, subProjectType, conn, transaction);
+
+            // Parse dates
+            DateTime? startDate = ParseDate(startDateStr);
+            DateTime? endDate = ParseDate(endDateStr);
+
+            // Check if project exists
+            if (_existingProjectsCache.TryGetValue(symphonyNumber, out var existingProject))
+            {
+                // Project exists - check if we should update
+                if (existingProject.EndDate.HasValue && endDate.HasValue)
+                {
+                    if (endDate.Value < existingProject.EndDate.Value)
+                    {
+                        // Skip - data in file is older
+                        _skippedCount++;
+                        _skippedProjects.Add(symphonyNumber);
+                        return;
+                    }
+                }
+
+                // Update existing project
+                UpdateProject(conn, transaction, symphonyNumber, startDate, endDate, status, projectOwner, clientId, userEmail);
+                _updatedCount++;
+            }
+            else
+            {
+                // Insert new project
+                InsertProject(conn, transaction, symphonyNumber, projectName, projectTypeId, subTypeId,
+                    startDate, endDate, projectOwner, userEmail, status, clientId, marketSectorId);
+                _insertedCount++;
+
+                // Add to cache to prevent duplicate inserts
+                _existingProjectsCache[symphonyNumber] = (0, endDate);
+            }
+        }
+
+        private string ParseProjectOwner(DataRow row)
+        {
+            string projectOwner = "";
+            try
+            {
+                string jobOwner = row["Job Owner"]?.ToString() ?? "";
+                if (!string.IsNullOrEmpty(jobOwner) && jobOwner.Contains(","))
+                {
+                    var parts = jobOwner.Split(',');
+                    if (parts.Length >= 2)
+                    {
+                        projectOwner = $"{parts[1].Trim().Replace(" ", "")}.{parts[0].Trim().Replace(" ", "")}@ipsos.com";
+                    }
+                }
+            }
+            catch { }
+
+            if (string.IsNullOrEmpty(projectOwner))
+            {
+                try
+                {
+                    string jobManager = row["Job Manager"]?.ToString() ?? "";
+                    if (!string.IsNullOrEmpty(jobManager) && jobManager.Contains(","))
+                    {
+                        var parts = jobManager.Split(',');
+                        if (parts.Length >= 2)
+                        {
+                            projectOwner = $"{parts[1].Trim().Replace(" ", "")}.{parts[0].Trim().Replace(" ", "")}@ipsos.com";
+                        }
+                    }
+                }
+                catch { }
+            }
+
+            return projectOwner;
+        }
+
+        private DateTime? ParseDate(string dateStr)
+        {
+            if (string.IsNullOrWhiteSpace(dateStr)) return null;
+
+            // Try multiple date formats
+            string[] formats = { "yyyy-MM-dd", "dd/MM/yyyy", "MM/dd/yyyy", "d/M/yyyy", "M/d/yyyy" };
+            foreach (var format in formats)
+            {
+                if (DateTime.TryParseExact(dateStr, format, CultureInfo.InvariantCulture, DateTimeStyles.None, out DateTime result))
+                    return result;
+            }
+
+            if (DateTime.TryParse(dateStr, out DateTime parsed))
+                return parsed;
+
+            return null;
+        }
+
+        private int GetOrCreateClientId(string clientName, SqlConnection conn, SqlTransaction transaction)
+        {
+            if (string.IsNullOrWhiteSpace(clientName)) return 0;
+
+            if (_clientCache.TryGetValue(clientName, out int id))
+                return id;
+
+            // Insert new client
+            using (SqlCommand cmd = new SqlCommand(
+                "INSERT INTO [ClientName] ([ClientName]) OUTPUT INSERTED.ID VALUES (@Name)", conn, transaction))
+            {
+                cmd.Parameters.AddWithValue("@Name", clientName);
+                int newId = Convert.ToInt32(cmd.ExecuteScalar());
+                _clientCache[clientName] = newId;
+                return newId;
+            }
+        }
+
+        private int GetOrCreateMarketSectorId(string sectorName, SqlConnection conn, SqlTransaction transaction)
+        {
+            if (string.IsNullOrWhiteSpace(sectorName)) return 0;
+
+            if (_marketSectorCache.TryGetValue(sectorName, out int id))
+                return id;
+
+            // Insert new market sector
+            using (SqlCommand cmd = new SqlCommand(
+                "INSERT INTO [MarketSector] ([SectorName]) OUTPUT INSERTED.ID VALUES (@Name)", conn, transaction))
+            {
+                cmd.Parameters.AddWithValue("@Name", sectorName);
+                int newId = Convert.ToInt32(cmd.ExecuteScalar());
+                _marketSectorCache[sectorName] = newId;
+                return newId;
+            }
+        }
+
+        private (int ProjectTypeId, int SubTypeId) GetOrCreateProjectTypeIds(string projectType, string subType,
+            SqlConnection conn, SqlTransaction transaction)
+        {
+            int projectTypeId = 0;
+            int subTypeId = 0;
+
+            // Check if subtype exists in cache
+            if (!string.IsNullOrWhiteSpace(subType) && _subTypeCache.TryGetValue(subType, out var cached))
+            {
+                return cached;
+            }
+
+            // Get or create project type
+            if (!string.IsNullOrWhiteSpace(projectType))
+            {
+                if (_projectTypeCache.TryGetValue(projectType, out projectTypeId))
+                {
+                    // Project type exists
+                }
+                else
+                {
+                    // Create new project type
+                    using (SqlCommand cmd = new SqlCommand(
+                        "INSERT INTO [Project_Type] ([Project_Type]) OUTPUT INSERTED.ID VALUES (@Name)", conn, transaction))
+                    {
+                        cmd.Parameters.AddWithValue("@Name", projectType);
+                        projectTypeId = Convert.ToInt32(cmd.ExecuteScalar());
+                        _projectTypeCache[projectType] = projectTypeId;
+                    }
+                }
+            }
+
+            // Create subtype if needed
+            if (!string.IsNullOrWhiteSpace(subType) && projectTypeId > 0)
+            {
+                using (SqlCommand cmd = new SqlCommand(
+                    "INSERT INTO [Project_SubType] ([Project_Type_ID], [SubType]) OUTPUT INSERTED.ID VALUES (@TypeId, @Name)",
+                    conn, transaction))
+                {
+                    cmd.Parameters.AddWithValue("@TypeId", projectTypeId);
+                    cmd.Parameters.AddWithValue("@Name", subType);
+                    subTypeId = Convert.ToInt32(cmd.ExecuteScalar());
+                    _subTypeCache[subType] = (projectTypeId, subTypeId);
+                }
+            }
+
+            return (projectTypeId, subTypeId);
+        }
+
+        private void UpdateProject(SqlConnection conn, SqlTransaction transaction, string symphonyNumber,
+            DateTime? startDate, DateTime? endDate, string status, string projectOwner, int clientId, string creator)
+        {
+            string sql = @"UPDATE [Project] SET
+                [Project_StartDate] = @StartDate,
+                [Project_EndDate] = @EndDate,
+                [Status] = @Status,
+                [Project_Owner] = @ProjectOwner,
+                [ClientName_ID] = @ClientId,
+                [Creator] = @Creator
+                WHERE REPLACE(Symphony_Number, '-', '') = @SymphonyNumber";
+
+            using (SqlCommand cmd = new SqlCommand(sql, conn, transaction))
+            {
+                cmd.Parameters.AddWithValue("@StartDate", (object)startDate ?? DBNull.Value);
+                cmd.Parameters.AddWithValue("@EndDate", (object)endDate ?? DBNull.Value);
+                cmd.Parameters.AddWithValue("@Status", status);
+                cmd.Parameters.AddWithValue("@ProjectOwner", projectOwner);
+                cmd.Parameters.AddWithValue("@ClientId", clientId);
+                cmd.Parameters.AddWithValue("@Creator", creator);
+                cmd.Parameters.AddWithValue("@SymphonyNumber", symphonyNumber);
+                cmd.ExecuteNonQuery();
+            }
+        }
+
+        private void InsertProject(SqlConnection conn, SqlTransaction transaction, string symphonyNumber,
+            string projectName, int projectTypeId, int subTypeId, DateTime? startDate, DateTime? endDate,
+            string projectOwner, string creator, string status, int clientId, int marketSectorId)
+        {
+            string sql = @"INSERT INTO [Project]
+                ([Symphony_Number], [Project_Name], [Project_Type_ID], [Project_SubType_ID],
+                 [Project_StartDate], [Project_EndDate], [Project_Owner], [Creator],
+                 [Created_DateTime], [Status], [ClientName_ID], [MarketSector_ID])
+                VALUES
+                (@SymphonyNumber, @ProjectName, @ProjectTypeId, @SubTypeId,
+                 @StartDate, @EndDate, @ProjectOwner, @Creator,
+                 @CreatedDateTime, @Status, @ClientId, @MarketSectorId)";
+
+            using (SqlCommand cmd = new SqlCommand(sql, conn, transaction))
+            {
+                cmd.Parameters.AddWithValue("@SymphonyNumber", ChangeSymNumber(symphonyNumber));
+                cmd.Parameters.AddWithValue("@ProjectName", projectName);
+                cmd.Parameters.AddWithValue("@ProjectTypeId", projectTypeId);
+                cmd.Parameters.AddWithValue("@SubTypeId", subTypeId);
+                cmd.Parameters.AddWithValue("@StartDate", (object)startDate ?? DBNull.Value);
+                cmd.Parameters.AddWithValue("@EndDate", (object)endDate ?? DBNull.Value);
+                cmd.Parameters.AddWithValue("@ProjectOwner", projectOwner);
+                cmd.Parameters.AddWithValue("@Creator", creator);
+                cmd.Parameters.AddWithValue("@CreatedDateTime", DateTime.Now);
+                cmd.Parameters.AddWithValue("@Status", status);
+                cmd.Parameters.AddWithValue("@ClientId", clientId);
+                cmd.Parameters.AddWithValue("@MarketSectorId", marketSectorId);
+                cmd.ExecuteNonQuery();
+            }
         }
         public DataTable HtmlToDataTable(string html, int startRowIndex = 8)
         {
