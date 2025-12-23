@@ -1,0 +1,874 @@
+/* ==========================================================================
+   IPSOS THEME CSS
+   Brand Identity Design System
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   CSS Variables / Custom Properties
+   -------------------------------------------------------------------------- */
+:root {
+    /* Primary Colors */
+    --ipsos-prussian-blue: #002657;
+    --ipsos-sapphire-blue: #374ea1;
+    --ipsos-teal: #008B8B;
+    --ipsos-light-blue: #5B9BD5;
+
+    /* Gradient */
+    --ipsos-gradient: linear-gradient(135deg, #002657 0%, #374ea1 50%, #008B8B 100%);
+    --ipsos-gradient-hover: linear-gradient(135deg, #001a3d 0%, #2a3d7d 50%, #006d6d 100%);
+
+    /* Status Colors */
+    --ipsos-success: #27AE60;
+    --ipsos-warning: #F39C12;
+    --ipsos-error: #E74C3C;
+    --ipsos-info: #3498DB;
+
+    /* Neutrals */
+    --ipsos-dark: #2C3E50;
+    --ipsos-gray: #7F8C8D;
+    --ipsos-light-gray: #ECF0F1;
+    --ipsos-white-smoke: #F8F9FA;
+    --ipsos-white: #FFFFFF;
+
+    /* Shadows */
+    --ipsos-shadow-sm: 0 2px 4px rgba(0, 38, 87, 0.1);
+    --ipsos-shadow-md: 0 4px 12px rgba(0, 38, 87, 0.15);
+    --ipsos-shadow-lg: 0 8px 24px rgba(0, 38, 87, 0.2);
+
+    /* Border Radius */
+    --ipsos-radius-sm: 4px;
+    --ipsos-radius-md: 8px;
+    --ipsos-radius-lg: 12px;
+
+    /* Transitions */
+    --ipsos-transition: all 0.3s ease;
+}
+
+/* --------------------------------------------------------------------------
+   Typography
+   -------------------------------------------------------------------------- */
+@import url('https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&display=swap');
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--ipsos-dark);
+    background-color: var(--ipsos-white-smoke);
+}
+
+h1, h2, h3, h4, h5, h6 {
+    font-family: 'Barlow', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-weight: 600;
+    color: var(--ipsos-prussian-blue);
+    margin-bottom: 0.5rem;
+}
+
+h1 { font-size: 2rem; }
+h2 { font-size: 1.75rem; }
+h3 { font-size: 1.5rem; }
+h4 { font-size: 1.25rem; }
+h5 { font-size: 1.1rem; }
+h6 { font-size: 1rem; }
+
+/* --------------------------------------------------------------------------
+   Animations
+   -------------------------------------------------------------------------- */
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes slideInUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* --------------------------------------------------------------------------
+   Navbar
+   -------------------------------------------------------------------------- */
+.ipsos-navbar {
+    background: var(--ipsos-gradient);
+    box-shadow: var(--ipsos-shadow-md);
+    padding: 0;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 1000;
+    min-height: 60px;
+}
+
+.ipsos-navbar-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 60px;
+}
+
+.ipsos-navbar-brand {
+    font-family: 'Barlow', sans-serif;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--ipsos-white) !important;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.ipsos-navbar-brand:hover {
+    color: var(--ipsos-light-gray) !important;
+    text-decoration: none;
+}
+
+.ipsos-navbar-menu {
+    display: flex;
+    align-items: center;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    gap: 0.5rem;
+}
+
+.ipsos-navbar-item {
+    position: relative;
+}
+
+.ipsos-navbar-link {
+    color: var(--ipsos-white) !important;
+    text-decoration: none;
+    padding: 0.75rem 1rem;
+    font-weight: 500;
+    border-radius: var(--ipsos-radius-sm);
+    transition: var(--ipsos-transition);
+    display: block;
+}
+
+.ipsos-navbar-link:hover {
+    background: rgba(255, 255, 255, 0.15);
+    color: var(--ipsos-white) !important;
+    text-decoration: none;
+}
+
+.ipsos-navbar-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    background: var(--ipsos-white);
+    border-radius: var(--ipsos-radius-md);
+    box-shadow: var(--ipsos-shadow-lg);
+    min-width: 200px;
+    padding: 0.5rem 0;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(10px);
+    transition: var(--ipsos-transition);
+    list-style: none;
+}
+
+.ipsos-navbar-item:hover .ipsos-navbar-dropdown {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+.ipsos-navbar-dropdown-item {
+    display: block;
+    padding: 0.6rem 1.25rem;
+    color: var(--ipsos-dark);
+    text-decoration: none;
+    transition: var(--ipsos-transition);
+}
+
+.ipsos-navbar-dropdown-item:hover {
+    background: var(--ipsos-light-gray);
+    color: var(--ipsos-sapphire-blue);
+    text-decoration: none;
+}
+
+.ipsos-navbar-logout {
+    background: rgba(255, 255, 255, 0.1);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    color: var(--ipsos-white) !important;
+    padding: 0.5rem 1rem;
+    border-radius: var(--ipsos-radius-md);
+    font-weight: 500;
+    transition: var(--ipsos-transition);
+    cursor: pointer;
+}
+
+.ipsos-navbar-logout:hover {
+    background: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.5);
+}
+
+/* --------------------------------------------------------------------------
+   Cards
+   -------------------------------------------------------------------------- */
+.ipsos-card {
+    background: var(--ipsos-white);
+    border-radius: var(--ipsos-radius-lg);
+    box-shadow: var(--ipsos-shadow-md);
+    overflow: hidden;
+    animation: slideInUp 0.4s ease-out;
+    margin-bottom: 1.5rem;
+}
+
+.ipsos-card-header {
+    background: var(--ipsos-gradient);
+    padding: 1rem 1.5rem;
+    border-bottom: 3px solid var(--ipsos-teal);
+}
+
+.ipsos-card-header h2,
+.ipsos-card-header h3,
+.ipsos-card-header h4 {
+    color: var(--ipsos-white);
+    margin: 0;
+    font-family: 'Barlow', sans-serif;
+    font-weight: 600;
+}
+
+.ipsos-card-body {
+    padding: 1.5rem;
+}
+
+.ipsos-card-footer {
+    padding: 1rem 1.5rem;
+    background: var(--ipsos-light-gray);
+    border-top: 1px solid #ddd;
+}
+
+/* --------------------------------------------------------------------------
+   Buttons
+   -------------------------------------------------------------------------- */
+.ipsos-btn {
+    display: inline-block;
+    padding: 0.6rem 1.25rem;
+    font-size: 0.9rem;
+    font-weight: 500;
+    text-align: center;
+    text-decoration: none;
+    border: none;
+    border-radius: var(--ipsos-radius-md);
+    cursor: pointer;
+    transition: var(--ipsos-transition);
+    box-shadow: var(--ipsos-shadow-sm);
+}
+
+.ipsos-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--ipsos-shadow-md);
+}
+
+.ipsos-btn:active {
+    transform: translateY(0);
+}
+
+.ipsos-btn-primary {
+    background: var(--ipsos-gradient);
+    color: var(--ipsos-white);
+}
+
+.ipsos-btn-primary:hover {
+    background: var(--ipsos-gradient-hover);
+    color: var(--ipsos-white);
+}
+
+.ipsos-btn-secondary {
+    background: var(--ipsos-gray);
+    color: var(--ipsos-white);
+}
+
+.ipsos-btn-secondary:hover {
+    background: #6c7a7d;
+    color: var(--ipsos-white);
+}
+
+.ipsos-btn-success {
+    background: var(--ipsos-success);
+    color: var(--ipsos-white);
+}
+
+.ipsos-btn-success:hover {
+    background: #219a52;
+    color: var(--ipsos-white);
+}
+
+.ipsos-btn-danger {
+    background: var(--ipsos-error);
+    color: var(--ipsos-white);
+}
+
+.ipsos-btn-danger:hover {
+    background: #c0392b;
+    color: var(--ipsos-white);
+}
+
+.ipsos-btn-warning {
+    background: var(--ipsos-warning);
+    color: var(--ipsos-white);
+}
+
+.ipsos-btn-warning:hover {
+    background: #d68910;
+    color: var(--ipsos-white);
+}
+
+.ipsos-btn-teal {
+    background: var(--ipsos-teal);
+    color: var(--ipsos-white);
+}
+
+.ipsos-btn-teal:hover {
+    background: #006d6d;
+    color: var(--ipsos-white);
+}
+
+.ipsos-btn-outline {
+    background: transparent;
+    border: 2px solid var(--ipsos-sapphire-blue);
+    color: var(--ipsos-sapphire-blue);
+}
+
+.ipsos-btn-outline:hover {
+    background: var(--ipsos-sapphire-blue);
+    color: var(--ipsos-white);
+}
+
+.ipsos-btn-sm {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.8rem;
+}
+
+.ipsos-btn-lg {
+    padding: 0.8rem 2rem;
+    font-size: 1rem;
+}
+
+/* --------------------------------------------------------------------------
+   Forms
+   -------------------------------------------------------------------------- */
+.ipsos-form-group {
+    margin-bottom: 1.25rem;
+}
+
+.ipsos-form-label {
+    display: block;
+    margin-bottom: 0.4rem;
+    font-weight: 500;
+    color: var(--ipsos-dark);
+}
+
+.ipsos-form-label-required::after {
+    content: ' *';
+    color: var(--ipsos-error);
+}
+
+.ipsos-form-control {
+    width: 100%;
+    padding: 0.6rem 1rem;
+    font-size: 0.9rem;
+    border: 2px solid var(--ipsos-light-gray);
+    border-radius: var(--ipsos-radius-md);
+    background: var(--ipsos-white);
+    transition: var(--ipsos-transition);
+    box-sizing: border-box;
+}
+
+.ipsos-form-control:focus {
+    outline: none;
+    border-color: var(--ipsos-sapphire-blue);
+    box-shadow: 0 0 0 3px rgba(55, 78, 161, 0.15);
+}
+
+.ipsos-form-control:disabled {
+    background: var(--ipsos-light-gray);
+    cursor: not-allowed;
+}
+
+.ipsos-form-control::placeholder {
+    color: var(--ipsos-gray);
+}
+
+.ipsos-form-select {
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%237F8C8D' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 1rem center;
+    padding-right: 2.5rem;
+}
+
+.ipsos-checkbox,
+.ipsos-radio {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+}
+
+.ipsos-checkbox input,
+.ipsos-radio input {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--ipsos-sapphire-blue);
+}
+
+/* --------------------------------------------------------------------------
+   Tables
+   -------------------------------------------------------------------------- */
+.ipsos-table-container {
+    overflow-x: auto;
+    border-radius: var(--ipsos-radius-lg);
+    box-shadow: var(--ipsos-shadow-md);
+    background: var(--ipsos-white);
+}
+
+.ipsos-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+
+.ipsos-table thead {
+    background: var(--ipsos-gradient);
+}
+
+.ipsos-table th {
+    padding: 1rem;
+    text-align: left;
+    color: var(--ipsos-white);
+    font-weight: 600;
+    font-family: 'Barlow', sans-serif;
+    white-space: nowrap;
+}
+
+.ipsos-table td {
+    padding: 0.8rem 1rem;
+    border-bottom: 1px solid var(--ipsos-light-gray);
+    color: var(--ipsos-dark);
+}
+
+.ipsos-table tbody tr:hover {
+    background: rgba(55, 78, 161, 0.05);
+}
+
+.ipsos-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+/* GridView specific styles */
+.ipsos-gridview {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.ipsos-gridview th {
+    background: var(--ipsos-gradient) !important;
+    color: var(--ipsos-white) !important;
+    padding: 0.8rem 1rem;
+    font-weight: 600;
+    font-family: 'Barlow', sans-serif;
+    border: none !important;
+}
+
+.ipsos-gridview td {
+    padding: 0.6rem 1rem;
+    border-bottom: 1px solid var(--ipsos-light-gray);
+}
+
+.ipsos-gridview tr:nth-child(even) {
+    background: var(--ipsos-white-smoke);
+}
+
+.ipsos-gridview tr:hover {
+    background: rgba(55, 78, 161, 0.08);
+}
+
+/* --------------------------------------------------------------------------
+   Alerts
+   -------------------------------------------------------------------------- */
+.ipsos-alert {
+    padding: 1rem 1.25rem;
+    border-radius: var(--ipsos-radius-md);
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    animation: slideIn 0.3s ease-out;
+}
+
+.ipsos-alert-success {
+    background: rgba(39, 174, 96, 0.1);
+    border-left: 4px solid var(--ipsos-success);
+    color: #1e8449;
+}
+
+.ipsos-alert-warning {
+    background: rgba(243, 156, 18, 0.1);
+    border-left: 4px solid var(--ipsos-warning);
+    color: #b7950b;
+}
+
+.ipsos-alert-error {
+    background: rgba(231, 76, 60, 0.1);
+    border-left: 4px solid var(--ipsos-error);
+    color: #c0392b;
+}
+
+.ipsos-alert-info {
+    background: rgba(52, 152, 219, 0.1);
+    border-left: 4px solid var(--ipsos-info);
+    color: #2471a3;
+}
+
+/* --------------------------------------------------------------------------
+   Grid System
+   -------------------------------------------------------------------------- */
+.ipsos-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 1.5rem;
+}
+
+.ipsos-row {
+    display: flex;
+    flex-wrap: wrap;
+    margin: 0 -0.75rem;
+}
+
+.ipsos-col {
+    padding: 0 0.75rem;
+    flex: 1;
+}
+
+.ipsos-col-1 { flex: 0 0 8.333%; max-width: 8.333%; }
+.ipsos-col-2 { flex: 0 0 16.666%; max-width: 16.666%; }
+.ipsos-col-3 { flex: 0 0 25%; max-width: 25%; }
+.ipsos-col-4 { flex: 0 0 33.333%; max-width: 33.333%; }
+.ipsos-col-5 { flex: 0 0 41.666%; max-width: 41.666%; }
+.ipsos-col-6 { flex: 0 0 50%; max-width: 50%; }
+.ipsos-col-7 { flex: 0 0 58.333%; max-width: 58.333%; }
+.ipsos-col-8 { flex: 0 0 66.666%; max-width: 66.666%; }
+.ipsos-col-9 { flex: 0 0 75%; max-width: 75%; }
+.ipsos-col-10 { flex: 0 0 83.333%; max-width: 83.333%; }
+.ipsos-col-11 { flex: 0 0 91.666%; max-width: 91.666%; }
+.ipsos-col-12 { flex: 0 0 100%; max-width: 100%; }
+
+/* --------------------------------------------------------------------------
+   Login Page
+   -------------------------------------------------------------------------- */
+.ipsos-login-container {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--ipsos-gradient);
+    padding: 2rem;
+}
+
+.ipsos-login-card {
+    background: var(--ipsos-white);
+    border-radius: var(--ipsos-radius-lg);
+    box-shadow: var(--ipsos-shadow-lg);
+    width: 100%;
+    max-width: 420px;
+    overflow: hidden;
+    animation: slideInUp 0.5s ease-out;
+}
+
+.ipsos-login-header {
+    background: var(--ipsos-gradient);
+    padding: 2rem;
+    text-align: center;
+}
+
+.ipsos-login-header h1 {
+    color: var(--ipsos-white);
+    margin: 0;
+    font-family: 'Barlow', sans-serif;
+    font-weight: 700;
+    font-size: 2rem;
+}
+
+.ipsos-login-header p {
+    color: rgba(255, 255, 255, 0.8);
+    margin: 0.5rem 0 0;
+}
+
+.ipsos-login-body {
+    padding: 2rem;
+}
+
+.ipsos-login-footer {
+    text-align: center;
+    padding: 1rem 2rem 2rem;
+}
+
+.ipsos-login-footer a {
+    color: var(--ipsos-sapphire-blue);
+    text-decoration: none;
+}
+
+.ipsos-login-footer a:hover {
+    text-decoration: underline;
+}
+
+/* --------------------------------------------------------------------------
+   Page Layout
+   -------------------------------------------------------------------------- */
+.ipsos-page-wrapper {
+    padding-top: 80px;
+    padding-bottom: 2rem;
+    min-height: 100vh;
+}
+
+.ipsos-page-header {
+    background: var(--ipsos-white);
+    padding: 1.5rem 0;
+    margin-bottom: 2rem;
+    box-shadow: var(--ipsos-shadow-sm);
+}
+
+.ipsos-page-title {
+    margin: 0;
+    font-family: 'Barlow', sans-serif;
+    font-weight: 700;
+    color: var(--ipsos-prussian-blue);
+}
+
+/* --------------------------------------------------------------------------
+   Footer
+   -------------------------------------------------------------------------- */
+.ipsos-footer {
+    background: var(--ipsos-prussian-blue);
+    color: var(--ipsos-light-gray);
+    padding: 1.5rem 0;
+    text-align: center;
+    margin-top: 3rem;
+}
+
+.ipsos-footer p {
+    margin: 0;
+}
+
+.ipsos-footer a {
+    color: var(--ipsos-teal);
+}
+
+/* --------------------------------------------------------------------------
+   Utilities
+   -------------------------------------------------------------------------- */
+.ipsos-text-center { text-align: center; }
+.ipsos-text-left { text-align: left; }
+.ipsos-text-right { text-align: right; }
+
+.ipsos-mt-1 { margin-top: 0.5rem; }
+.ipsos-mt-2 { margin-top: 1rem; }
+.ipsos-mt-3 { margin-top: 1.5rem; }
+.ipsos-mt-4 { margin-top: 2rem; }
+
+.ipsos-mb-1 { margin-bottom: 0.5rem; }
+.ipsos-mb-2 { margin-bottom: 1rem; }
+.ipsos-mb-3 { margin-bottom: 1.5rem; }
+.ipsos-mb-4 { margin-bottom: 2rem; }
+
+.ipsos-p-1 { padding: 0.5rem; }
+.ipsos-p-2 { padding: 1rem; }
+.ipsos-p-3 { padding: 1.5rem; }
+.ipsos-p-4 { padding: 2rem; }
+
+.ipsos-required {
+    color: var(--ipsos-error);
+}
+
+.ipsos-hidden {
+    display: none !important;
+}
+
+/* --------------------------------------------------------------------------
+   Responsive Design
+   -------------------------------------------------------------------------- */
+@media screen and (max-width: 992px) {
+    .ipsos-navbar-container {
+        flex-wrap: wrap;
+    }
+
+    .ipsos-navbar-menu {
+        flex-direction: column;
+        width: 100%;
+        padding: 1rem 0;
+    }
+
+    .ipsos-navbar-item {
+        width: 100%;
+    }
+
+    .ipsos-navbar-link {
+        width: 100%;
+    }
+}
+
+@media screen and (max-width: 768px) {
+    .ipsos-col-1, .ipsos-col-2, .ipsos-col-3, .ipsos-col-4,
+    .ipsos-col-5, .ipsos-col-6, .ipsos-col-7, .ipsos-col-8,
+    .ipsos-col-9, .ipsos-col-10, .ipsos-col-11 {
+        flex: 0 0 100%;
+        max-width: 100%;
+    }
+
+    .ipsos-card-body {
+        padding: 1rem;
+    }
+
+    .ipsos-page-wrapper {
+        padding-top: 70px;
+    }
+}
+
+/* --------------------------------------------------------------------------
+   Override Bootstrap Styles for ASP.NET Integration
+   -------------------------------------------------------------------------- */
+.navbar.navbar-inverse.navbar-fixed-top {
+    background: var(--ipsos-gradient) !important;
+    border: none !important;
+    box-shadow: var(--ipsos-shadow-md);
+}
+
+.navbar-inverse .navbar-brand {
+    color: var(--ipsos-white) !important;
+    font-family: 'Barlow', sans-serif;
+    font-weight: 700;
+    font-size: 1.4rem;
+}
+
+.navbar-inverse .navbar-nav > li > a {
+    color: var(--ipsos-white) !important;
+    transition: var(--ipsos-transition);
+}
+
+.navbar-inverse .navbar-nav > li > a:hover {
+    background: rgba(255, 255, 255, 0.15) !important;
+}
+
+.body-content {
+    padding-top: 20px;
+    animation: fadeIn 0.4s ease-out;
+}
+
+/* ASP.NET Controls Styling */
+input[type="text"],
+input[type="password"],
+input[type="email"],
+input[type="date"],
+input[type="number"],
+select,
+textarea {
+    padding: 0.6rem 1rem !important;
+    border: 2px solid var(--ipsos-light-gray) !important;
+    border-radius: var(--ipsos-radius-md) !important;
+    transition: var(--ipsos-transition) !important;
+    font-size: 0.9rem !important;
+    max-width: 100% !important;
+}
+
+input[type="text"]:focus,
+input[type="password"]:focus,
+input[type="email"]:focus,
+input[type="date"]:focus,
+input[type="number"]:focus,
+select:focus,
+textarea:focus {
+    border-color: var(--ipsos-sapphire-blue) !important;
+    outline: none !important;
+    box-shadow: 0 0 0 3px rgba(55, 78, 161, 0.15) !important;
+}
+
+input[type="submit"],
+input[type="button"],
+button {
+    background: var(--ipsos-gradient) !important;
+    color: var(--ipsos-white) !important;
+    border: none !important;
+    padding: 0.6rem 1.5rem !important;
+    border-radius: var(--ipsos-radius-md) !important;
+    font-weight: 500 !important;
+    cursor: pointer !important;
+    transition: var(--ipsos-transition) !important;
+    box-shadow: var(--ipsos-shadow-sm) !important;
+}
+
+input[type="submit"]:hover,
+input[type="button"]:hover,
+button:hover {
+    background: var(--ipsos-gradient-hover) !important;
+    transform: translateY(-2px) !important;
+    box-shadow: var(--ipsos-shadow-md) !important;
+}
+
+input[type="submit"]:disabled,
+input[type="button"]:disabled,
+button:disabled {
+    background: var(--ipsos-gray) !important;
+    cursor: not-allowed !important;
+    transform: none !important;
+}
+
+/* Panel Styling */
+.panel, [id*="Panel"] > table {
+    background: var(--ipsos-white);
+    border-radius: var(--ipsos-radius-lg);
+    box-shadow: var(--ipsos-shadow-md);
+    overflow: hidden;
+}
+
+/* GridView Styling */
+table[id*="GridView"] {
+    width: 100%;
+    border-collapse: collapse;
+    border-radius: var(--ipsos-radius-lg);
+    overflow: hidden;
+}
+
+table[id*="GridView"] th {
+    background: var(--ipsos-gradient) !important;
+    color: var(--ipsos-white) !important;
+    padding: 0.8rem 1rem !important;
+    font-weight: 600 !important;
+    font-family: 'Barlow', sans-serif !important;
+    text-align: left;
+}
+
+table[id*="GridView"] td {
+    padding: 0.6rem 1rem !important;
+    border-bottom: 1px solid var(--ipsos-light-gray) !important;
+}
+
+table[id*="GridView"] tr:nth-child(even) {
+    background: var(--ipsos-white-smoke);
+}
+
+table[id*="GridView"] tr:hover {
+    background: rgba(55, 78, 161, 0.08);
+}
