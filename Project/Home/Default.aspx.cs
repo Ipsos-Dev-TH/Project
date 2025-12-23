@@ -924,7 +924,7 @@ namespace Project
             string projectName = row["Record Detail"]?.ToString()?.Replace(symphonyNumber + " - ", "") ?? "";
             string status = row["Status"]?.ToString() ?? "";
             string clientName = row["Billing Client Name"]?.ToString()?.Replace("&amp;", "&") ?? "";
-            string marketSector = row["Client Sector"]?.ToString()?.Replace("&amp;", "&") ?? "";
+            string marketSector = row["Client Brand Market Sector"]?.ToString()?.Replace("&amp;", "&") ?? "";
             string projectType = row["DC Technique Group"]?.ToString()?.Replace("&amp;", "&") ?? "";
             string subProjectType = row["DC Mode"]?.ToString()?.Replace("&amp;", "&") ?? "";
             string startDateStr = row["Job Start Date"]?.ToString() ?? "";
