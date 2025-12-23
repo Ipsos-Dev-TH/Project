@@ -249,28 +249,28 @@
             font-weight: bold;
         }
         .ipsos-checkbox {
-            font-size: 0.95rem;
+            font-size: 1.05rem;
             color: var(--ipsos-prussian-blue);
         }
         .ipsos-checkbox input[type="checkbox"] {
-            width: 18px;
-            height: 18px;
+            width: 20px;
+            height: 20px;
             margin-right: 0.5rem;
             accent-color: var(--ipsos-sapphire-blue);
         }
         /* Status Badge Styles */
         .status-badge {
             display: inline-block;
-            padding: 0.25rem 0.75rem;
-            font-size: 0.75rem;
+            padding: 0.35rem 0.85rem;
+            font-size: 0.85rem;
             font-weight: 600;
             border-radius: 50px;
             text-transform: uppercase;
         }
         .status-badge-lg {
             display: inline-block;
-            padding: 0.5rem 1.25rem;
-            font-size: 0.9rem;
+            padding: 0.6rem 1.5rem;
+            font-size: 1rem;
             font-weight: 600;
             border-radius: 50px;
             text-transform: uppercase;
