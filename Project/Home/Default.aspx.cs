@@ -420,17 +420,42 @@ namespace Project
 
         protected void Button6_Click(object sender, EventArgs e)
         {
-            DataTable dtSearch = _core.DatabaseQuery(_conn, _sql.Select_Project_byColumn.Replace("@Column", DropDownList15.SelectedValue).Replace("@Value", TextBox21.Text));
-            GridView2.DataSource = dtSearch;
-            GridView2.DataBind();
+            SearchProjects();
         }
 
         protected void GridView2_PageIndexChanging(object sender, GridViewPageEventArgs e)
         {
-            DataTable dtSearch = _core.DatabaseQuery(_conn, "SELECT * FROM [Project].[dbo].[Project] inner join Project_Type on Project_Type.ID = Project_Type_ID inner join Project_SubType on Project_SubType.ID = Project_SubType_ID WHERE " + DropDownList15.SelectedItem.Value + " LIKE N'%" + TextBox21.Text + "%'");
-            GridView2.DataSource = dtSearch;
             GridView2.PageIndex = e.NewPageIndex;
-            GridView2.DataBind();
+            SearchProjects();
+        }
+
+        private void SearchProjects()
+        {
+            string searchColumn = DropDownList15.SelectedValue;
+            string searchValue = TextBox21.Text?.Trim() ?? "";
+
+            // Validate column name against whitelist
+            if (!SQL.IsValidSearchColumn(searchColumn))
+            {
+                return;
+            }
+
+            // Use parameterized query for search value
+            string query = _sql.GetSearchQuery(searchColumn);
+
+            using (SqlConnection conn = new SqlConnection(_conn))
+            {
+                using (SqlCommand cmd = new SqlCommand(query.Replace("@Value", "@SearchValue"), conn))
+                {
+                    cmd.Parameters.AddWithValue("@SearchValue", searchValue);
+                    SqlDataAdapter adapter = new SqlDataAdapter(cmd);
+                    DataTable dtSearch = new DataTable();
+                    adapter.Fill(dtSearch);
+
+                    GridView2.DataSource = dtSearch;
+                    GridView2.DataBind();
+                }
+            }
         }
 
         protected void Button7_Click(object sender, EventArgs e)

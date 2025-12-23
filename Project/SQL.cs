@@ -13,20 +13,26 @@ namespace Project
         public string Select_Project_CheckExist = "SELECT * FROM [Project].[dbo].[Project] WHERE Symphony_Number = @Symphony_Number";
 
         // Query to search projects by column - Note: Column name should be validated against whitelist before use
-        public string Select_Project_byColumn = @"SELECT * FROM [Project].[dbo].[Project]
-            INNER JOIN Project_Type ON Project_Type.ID = Project_Type_ID
-            INNER JOIN Project_SubType ON Project_SubType.ID = Project_SubType_ID
-            INNER JOIN ClientName ON ClientName.ID = ClientName_ID
-            INNER JOIN MarketSector ON MarketSector.ID = MarketSector_ID
+        public string Select_Project_byColumn = @"SELECT [Project].*,
+            Project_Type.Project_Type, Project_SubType.SubType,
+            ClientName.ClientName, MarketSector.SectorName
+            FROM [Project].[dbo].[Project]
+            LEFT JOIN Project_Type ON Project_Type.ID = Project_Type_ID
+            LEFT JOIN Project_SubType ON Project_SubType.ID = Project_SubType_ID
+            LEFT JOIN ClientName ON ClientName.ID = ClientName_ID
+            LEFT JOIN MarketSector ON MarketSector.ID = MarketSector_ID
             WHERE {0} LIKE N'%' + @Value + '%'
             ORDER BY Created_DateTime DESC";
 
         // Query to get project by ID
-        public string Select_Project_byIDSelected = @"SELECT * FROM [Project].[dbo].[Project]
-            INNER JOIN ClientName ON ClientName.ID = ClientName_ID
-            INNER JOIN MarketSector ON MarketSector.ID = MarketSector_ID
-            INNER JOIN Project_Type ON Project_Type.ID = Project_Type_ID
-            INNER JOIN Project_SubType ON Project_SubType.ID = Project_SubType_ID
+        public string Select_Project_byIDSelected = @"SELECT [Project].*,
+            Project_Type.Project_Type, Project_SubType.SubType,
+            ClientName.ClientName, MarketSector.SectorName
+            FROM [Project].[dbo].[Project]
+            LEFT JOIN ClientName ON ClientName.ID = ClientName_ID
+            LEFT JOIN MarketSector ON MarketSector.ID = MarketSector_ID
+            LEFT JOIN Project_Type ON Project_Type.ID = Project_Type_ID
+            LEFT JOIN Project_SubType ON Project_SubType.ID = Project_SubType_ID
             WHERE [Project].ID = @IDSelected";
 
         // Query to get all active project types
