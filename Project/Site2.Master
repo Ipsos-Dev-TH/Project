@@ -117,14 +117,13 @@
 
         .login-form-control {
             width: 100%;
-            padding: 0.85rem 1rem 0.85rem 2.75rem;
+            padding: 0.85rem 1rem 0.85rem 3.25rem;
             font-size: 1rem;
             border: 2px solid #ECF0F1;
             border-radius: 10px;
             background: #F8F9FA;
             transition: all 0.3s ease;
             box-sizing: border-box;
-            text-indent: 0.25rem;
         }
 
         .login-form-control:focus {
@@ -212,13 +211,15 @@
 
         .input-wrapper .input-icon {
             position: absolute;
-            left: 0.85rem;
+            left: 1rem;
             top: 50%;
             transform: translateY(-50%);
             color: #95A5A6;
-            font-size: 1rem;
+            font-size: 0.95rem;
             z-index: 10;
             pointer-events: none;
+            width: 1rem;
+            text-align: center;
         }
     </style>
 </head>
