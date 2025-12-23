@@ -22,6 +22,9 @@ namespace Project
         private readonly Core _core = new Core();
         private readonly string _conn = ConfigurationManager.ConnectionStrings["ProjectConnectionString"].ConnectionString;
 
+        // Control declarations (for controls not auto-generated in designer)
+        protected global::System.Web.UI.WebControls.Label LblProjectStatus;
+
         // Allowed file extensions for upload
         private static readonly HashSet<string> AllowedFileExtensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
@@ -307,7 +310,7 @@ namespace Project
                             }
                             else
                             {
-                                cmd.Parameters.AddWithValue("@Creator", Email);
+                                cmd.Parameters.AddWithValue("@Creator", Session["Email"]?.ToString() ?? "");
                                 cmd.Parameters.AddWithValue("@Created_DateTime", DateTime.Now);
                             }
                             con.Open();
@@ -398,7 +401,7 @@ namespace Project
 
         protected void GridView1_RowDeleting(object sender, GridViewDeleteEventArgs e)
         {
-            dtCost = (DataTable)Session["dtCost"];
+            DataTable dtCost = (DataTable)Session["dtCost"];
             DataTable dtSearch = _core.DatabaseQuery(_conn, "SELECT * FROM [Payment].[dbo].[Payment] Where Project_Cost_ID = " + dtCost.Rows[e.RowIndex]["ID"].ToString() + " AND (Status = 'NEW' OR Status = 'EDITED' OR Status = 'APPROVED')");
             if (dtSearch.Rows.Count > 0)
             {
