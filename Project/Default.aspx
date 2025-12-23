@@ -17,12 +17,9 @@
                     <label class="form-label">
                         <i class="fas fa-envelope" style="color: #374ea1; margin-right: 0.5rem;"></i>Username / Email
                     </label>
-                    <div class="input-wrapper">
-                        <i class="fas fa-user input-icon"></i>
-                        <asp:TextBox ID="TextBox1" runat="server"
-                            placeholder="Enter your email"
-                            CssClass="login-form-control" />
-                    </div>
+                    <asp:TextBox ID="TextBox1" runat="server"
+                        placeholder="Enter your email"
+                        CssClass="login-form-control" />
                 </div>
 
                 <!-- Password Field -->
@@ -30,13 +27,10 @@
                     <label class="form-label">
                         <i class="fas fa-lock" style="color: #374ea1; margin-right: 0.5rem;"></i>Password
                     </label>
-                    <div class="input-wrapper">
-                        <i class="fas fa-key input-icon"></i>
-                        <asp:TextBox ID="TextBox2" runat="server"
-                            TextMode="Password"
-                            placeholder="Enter your password"
-                            CssClass="login-form-control" />
-                    </div>
+                    <asp:TextBox ID="TextBox2" runat="server"
+                        TextMode="Password"
+                        placeholder="Enter your password"
+                        CssClass="login-form-control" />
                 </div>
 
                 <!-- Remember Me & Forgot Password -->
