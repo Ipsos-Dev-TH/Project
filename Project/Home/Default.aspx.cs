@@ -1,185 +1,196 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
-using System.Linq;
+using System.Data;
+using System.Data.SqlClient;
+using System.Configuration;
+using System.Globalization;
+using System.IO;
 using System.Web;
+using System.Web.Script.Services;
+using System.Web.Services;
 using System.Web.UI;
 using System.Web.UI.WebControls;
-using System.Data;
-using System.Configuration;
-using System.IO;
-using System.Data.SqlClient;
-using System.Web.Services;
-using System.Web.Script.Services;
-using Project;
-using System.Data.OleDb;
 using ExcelDataReader;
 using HtmlAgilityPack;
-using System.Globalization;
 
 namespace Project
 {
     public partial class Default : System.Web.UI.Page
     {
-        SQL sql = new SQL();
-        Core Core = new Core();
-        string conn = ConfigurationManager.ConnectionStrings["ProjectConnectionString"].ConnectionString;
-        DataTable dtCost = new DataTable();
-        string Email = "";
+        private readonly SQL _sql = new SQL();
+        private readonly Core _core = new Core();
+        private readonly string _conn = ConfigurationManager.ConnectionStrings["ProjectConnectionString"].ConnectionString;
+
+        // Allowed file extensions for upload
+        private static readonly HashSet<string> AllowedFileExtensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ".xlsx", ".xls", ".html", ".htm"
+        };
+
+        private string CurrentEmail => Session["Email"] as string ?? string.Empty;
         protected void Page_Load(object sender, EventArgs e)
         {
-
-
-            string Command = Request.QueryString["Command"];
-            string ID = Request.QueryString["ID"];
+            string command = Request.QueryString["Command"];
+            string id = Request.QueryString["ID"];
 
             if (!IsPostBack)
             {
-                DataTable dtnull = null;
-                DropDownList1.DataSource = dtnull;
-                DropDownList1.DataBind();
-                DataTable dttype = Core.DatabaseQuery(conn, sql.Select_Project_Type_all);
-                DropDownList1.DataSource = dttype;
-                DataRow dr = dttype.NewRow();
-                dr["Project_Type"] = "---Please Choose---";
+                LoadDropdownData();
+                LoadProjectData(command, id);
+            }
+        }
+
+        private void LoadDropdownData()
+        {
+            // Project Type dropdown
+            DataTable dttype = _core.DatabaseQuery(_conn, _sql.Select_Project_Type_all);
+            AddDefaultRow(dttype, "Project_Type", "---Please Choose---");
+            BindDropdown(DropDownList1, dttype, "Project_Type", "ID");
+
+            // Product Type dropdown
+            DataTable dtproducttype = _core.DatabaseQuery(_conn, _sql.Select_Product_Type_all);
+            AddDefaultRow(dtproducttype, "Product_Type", "---Please Choose---");
+            BindDropdown(DropDownList16, dtproducttype, "Product_Type", "ID");
+
+            // Client DB dropdown
+            DataTable dtclientdb = _core.DatabaseQuery(_conn, "SELECT * FROM ClientDB WHERE Status = 'True'");
+            AddDefaultRow(dtclientdb, "Name", "---Please Choose---");
+            BindDropdown(DropDownList17, dtclientdb, "Name", "ID");
+
+            // Client Name dropdown
+            DataTable dtclientname = _core.DatabaseQuery(_conn, "SELECT * FROM [ClientName] WHERE [Status] = 1 ORDER BY ClientName ASC");
+            AddDefaultRow(dtclientname, "ClientName", "---Please Choose---");
+            BindDropdown(DropDownList18, dtclientname, "ClientName", "ID");
+
+            // Market Sector dropdown
+            DataTable dtmarketsector = _core.DatabaseQuery(_conn, "SELECT * FROM [MarketSector] WHERE [Status] = 1 ORDER BY SectorName ASC");
+            AddDefaultRow(dtmarketsector, "SectorName", "---Please Choose---");
+            BindDropdown(DropDownList19, dtmarketsector, "SectorName", "ID");
+        }
+
+        private void AddDefaultRow(DataTable dt, string textColumn, string defaultText)
+        {
+            if (dt.Columns.Contains(textColumn) && dt.Columns.Contains("ID"))
+            {
+                DataRow dr = dt.NewRow();
+                dr[textColumn] = defaultText;
                 dr["ID"] = 0;
-                dttype.Rows.InsertAt(dr, 0);
-                DropDownList1.DataTextField = "Project_Type";
-                DropDownList1.DataValueField = "ID";
-                DropDownList1.DataBind();
+                dt.Rows.InsertAt(dr, 0);
+            }
+        }
 
-                DropDownList16.DataSource = dtnull;
-                DropDownList16.DataBind();
-                DataTable dtproducttype = Core.DatabaseQuery(conn, sql.Select_Product_Type_all);
-                DropDownList16.DataSource = dtproducttype;
-                DataRow dr2 = dtproducttype.NewRow();
-                dr2["Product_Type"] = "---Please Choose---";
-                dr2["ID"] = 0;
-                dtproducttype.Rows.InsertAt(dr2, 0);
-                DropDownList16.DataTextField = "Product_Type";
-                DropDownList16.DataValueField = "ID";
-                DropDownList16.DataBind();
+        private void BindDropdown(DropDownList ddl, DataTable dt, string textField, string valueField)
+        {
+            ddl.DataSource = dt;
+            ddl.DataTextField = textField;
+            ddl.DataValueField = valueField;
+            ddl.DataBind();
+        }
 
-                DropDownList17.DataSource = dtnull;
-                DropDownList17.DataBind();
-                DataTable dtclientdb = Core.DatabaseQuery(conn, "select * from ClientDB Where Status = 'True'");
-                DropDownList17.DataSource = dtclientdb;
-                DataRow drx = dtclientdb.NewRow();
-                drx["Name"] = "---Please Choose---";
-                drx["ID"] = 0;
-                dtclientdb.Rows.InsertAt(drx, 0);
-                DropDownList17.DataTextField = "Name";
-                DropDownList17.DataValueField = "ID";
-                DropDownList17.DataBind();
-
-                DropDownList18.DataSource = dtnull;
-                DropDownList18.DataBind();
-                DataTable dtclientname = Core.DatabaseQuery(conn, "SELECT * FROM [ClientName] WHERE [Status] = 1 order by ClientName ASC");
-                DropDownList18.DataSource = dtclientname;
-                DataRow dry = dtclientname.NewRow();
-                dry["ClientName"] = "---Please Choose---";
-                dry["ID"] = 0;
-                dtclientname.Rows.InsertAt(dry, 0);
-                DropDownList18.DataTextField = "ClientName";
-                DropDownList18.DataValueField = "ID";
-                DropDownList18.DataBind();
-
-                DropDownList19.DataSource = dtnull;
-                DropDownList19.DataBind();
-                DataTable dtmarketsector = Core.DatabaseQuery(conn, "SELECT * FROM [MarketSector] WHERE [Status] = 1 order by SectorName ASC");
-                DropDownList19.DataSource = dtmarketsector;
-                DataRow drz = dtmarketsector.NewRow();
-                drz["SectorName"] = "---Please Choose---";
-                drz["ID"] = 0;
-                dtmarketsector.Rows.InsertAt(drz, 0);
-                DropDownList19.DataTextField = "SectorName";
-                DropDownList19.DataValueField = "ID";
-                DropDownList19.DataBind();
-
-
-                if (Command == "View" || Command == "Edit")
+        private void LoadProjectData(string command, string id)
+        {
+            if (command == "View" || command == "Edit")
+            {
+                if (!int.TryParse(id, out int projectId))
                 {
+                    return;
+                }
 
-                    ID = Request.QueryString["ID"];
-                    Button7.Enabled = false;
-                    Button8.Enabled = true;
+                Button7.Enabled = false;
+                Button8.Enabled = true;
 
-                    DataTable dtData = Core.DatabaseQuery(conn, sql.Select_Project_byIDSelected.Replace("@IDSelected", ID));
-                    Session["dtData"] = dtData;
-                    TextBox1.Text = dtData.Rows[0]["Symphony_Number"].ToString();
-                    TextBox2.Text = dtData.Rows[0]["Project_Number"].ToString();
-                    TextBox3.Text = dtData.Rows[0]["Project_Name"].ToString();
-                    TextBox22.Text = dtData.Rows[0]["Project_Owner"].ToString();
-                    //TextBox22.Text = dtData.Rows[0]["ClientName"].ToString();
-                    //TextBox23.Text = dtData.Rows[0]["SectorName"].ToString();
-                    try
-                    {
-                        DateTime stDate = (DateTime)dtData.Rows[0]["Project_StartDate"];
-                        datepicker1.Text = stDate.ToString("yyyy-MM-dd");
-                    }
-                    catch
-                    {
-                        datepicker1.Text = "";
-                    }
-                    try
-                    {
-                        DateTime edDate = (DateTime)dtData.Rows[0]["Project_EndDate"];
-                        datepicker2.Text = edDate.ToString("yyyy-MM-dd");
-                    }
-                    catch
-                    {
-                        datepicker2.Text = "";
-                    }
-                    try
-                    {
-                        DropDownList1.ClearSelection();
-                        DropDownList1.Items.FindByValue(dtData.Rows[0]["Project_Type_ID"].ToString()).Selected = true;
-                        DropDownList1.SelectedIndex = DropDownList1.Items.IndexOf(DropDownList1.Items.FindByValue(dtData.Rows[0]["Project_Type_ID"].ToString()));
+                DataTable dtData = _core.DatabaseQueryWithParams(_conn,
+                    _sql.Select_Project_byIDSelected,
+                    new SqlParameter("@IDSelected", projectId));
 
-                        DropDownList16.ClearSelection();
-                        DropDownList16.Items.FindByValue(dtData.Rows[0]["Product_Type_ID"].ToString()).Selected = true;
-                        DropDownList16.SelectedIndex = DropDownList16.Items.IndexOf(DropDownList16.Items.FindByValue(dtData.Rows[0]["Product_Type_ID"].ToString()));
+                if (dtData.Rows.Count == 0) return;
 
-                        DropDownList18.ClearSelection();
-                        DropDownList18.Items.FindByText(dtData.Rows[0]["ClientName"].ToString()).Selected = true;
-                        DropDownList18.SelectedIndex = DropDownList18.Items.IndexOf(DropDownList18.Items.FindByText(dtData.Rows[0]["ClientName"].ToString()));
+                Session["dtData"] = dtData;
+                DataRow row = dtData.Rows[0];
 
-                        DropDownList19.ClearSelection();
-                        DropDownList19.Items.FindByText(dtData.Rows[0]["SectorName"].ToString()).Selected = true;
-                        DropDownList19.SelectedIndex = DropDownList19.Items.IndexOf(DropDownList19.Items.FindByText(dtData.Rows[0]["SectorName"].ToString()));
+                TextBox1.Text = row["Symphony_Number"]?.ToString() ?? "";
+                TextBox2.Text = row["Project_Number"]?.ToString() ?? "";
+                TextBox3.Text = row["Project_Name"]?.ToString() ?? "";
+                TextBox22.Text = row["Project_Owner"]?.ToString() ?? "";
 
-                        DropDownList17.ClearSelection();
-                        DropDownList17.Items.FindByValue(dtData.Rows[0]["ClientDBID"].ToString()).Selected = true;
-                        DropDownList17.SelectedIndex = DropDownList17.Items.IndexOf(DropDownList17.Items.FindByValue(dtData.Rows[0]["ClientDBID"].ToString()));
+                // Parse dates safely
+                if (row["Project_StartDate"] != DBNull.Value && DateTime.TryParse(row["Project_StartDate"].ToString(), out DateTime stDate))
+                {
+                    datepicker1.Text = stDate.ToString("yyyy-MM-dd");
+                }
 
-                        CheckBox1.Checked = Convert.ToBoolean(dtData.Rows[0]["Used_iField"].ToString());
-                        CheckBox1.DataBind();
+                if (row["Project_EndDate"] != DBNull.Value && DateTime.TryParse(row["Project_EndDate"].ToString(), out DateTime edDate))
+                {
+                    datepicker2.Text = edDate.ToString("yyyy-MM-dd");
+                }
 
-                    }
-                    catch { }
-                    try
-                    {
-                        DropDownList2.DataSource = dtnull;
-                        DropDownList2.DataBind();
-                        DataTable dtsub = Core.DatabaseQuery(conn, sql.Select_Project_SubType_byddl1.Replace("@ddl1", DropDownList1.SelectedItem.Value));
-                        DropDownList2.DataSource = dtsub;
-                        DataRow dr3 = dtsub.NewRow();
-                        dr3["SubType"] = "---Please Choose---";
-                        dr3["ID"] = 0;
-                        dtsub.Rows.InsertAt(dr3, 0);
-                        DropDownList2.DataTextField = "SubType";
-                        DropDownList2.DataValueField = "ID";
-                        DropDownList2.DataBind();
-                        DropDownList2.ClearSelection();
-                        DropDownList2.Items.FindByValue(dtData.Rows[0]["Project_SubType_ID"].ToString()).Selected = true;
-                        DropDownList2.SelectedIndex = DropDownList2.Items.IndexOf(DropDownList2.Items.FindByValue(dtData.Rows[0]["Project_SubType_ID"].ToString()));
-                    }
-                    catch { }
-                    if (Command == "Edit")
-                    {
-                        EnableControl();
-                    }
+                // Set dropdown selections safely
+                TrySelectDropdownValue(DropDownList1, row["Project_Type_ID"]?.ToString());
+                TrySelectDropdownValue(DropDownList16, row["Product_Type_ID"]?.ToString());
+                TrySelectDropdownText(DropDownList18, row["ClientName"]?.ToString());
+                TrySelectDropdownText(DropDownList19, row["SectorName"]?.ToString());
+                TrySelectDropdownValue(DropDownList17, row["ClientDBID"]?.ToString());
+
+                if (bool.TryParse(row["Used_iField"]?.ToString(), out bool usediField))
+                {
+                    CheckBox1.Checked = usediField;
+                }
+
+                // Load project subtypes
+                LoadProjectSubTypes(row["Project_SubType_ID"]?.ToString());
+
+                if (command == "Edit")
+                {
+                    EnableControl();
                 }
             }
+        }
+
+        private void TrySelectDropdownValue(DropDownList ddl, string value)
+        {
+            if (string.IsNullOrEmpty(value)) return;
+            try
+            {
+                ddl.ClearSelection();
+                var item = ddl.Items.FindByValue(value);
+                if (item != null)
+                {
+                    item.Selected = true;
+                }
+            }
+            catch { }
+        }
+
+        private void TrySelectDropdownText(DropDownList ddl, string text)
+        {
+            if (string.IsNullOrEmpty(text)) return;
+            try
+            {
+                ddl.ClearSelection();
+                var item = ddl.Items.FindByText(text);
+                if (item != null)
+                {
+                    item.Selected = true;
+                }
+            }
+            catch { }
+        }
+
+        private void LoadProjectSubTypes(string selectedSubTypeId)
+        {
+            if (!int.TryParse(DropDownList1.SelectedValue, out int typeId) || typeId <= 0)
+            {
+                return;
+            }
+
+            DataTable dtsub = _core.DatabaseQueryWithParams(_conn,
+                _sql.Select_Project_SubType_byddl1,
+                new SqlParameter("@ProjectTypeId", typeId));
+
+            AddDefaultRow(dtsub, "SubType", "---Please Choose---");
+            BindDropdown(DropDownList2, dtsub, "SubType", "ID");
+
+            TrySelectDropdownValue(DropDownList2, selectedSubTypeId);
         }
 
         public void EnableControl()
@@ -204,18 +215,35 @@ namespace Project
 
         }
 
-        [System.Web.Script.Services.ScriptMethod()]
-        [System.Web.Services.WebMethod]
-        public List<string> GetCompletionList(string prefixText, int count)
+        [ScriptMethod]
+        [WebMethod]
+        public static List<string> GetCompletionList(string prefixText, int count)
         {
-            Core Core = new Core();
+            Core core = new Core();
             string conn = ConfigurationManager.ConnectionStrings["ProjectConnectionString"].ConnectionString;
 
-            DataTable dt = Core.DatabaseQuery(conn, "Select [ClientName] from ClientName Where Status = 1 And ClientName like '%" + prefixText + "%'");
-            List<string> names = new List<string>();
-            for (int i = 0; i < dt.Rows.Count; i++)
+            if (string.IsNullOrWhiteSpace(prefixText))
             {
-                names.Add(dt.Rows[i][0].ToString());
+                return new List<string>();
+            }
+
+            if (count <= 0 || count > 100)
+            {
+                count = 20;
+            }
+
+            DataTable dt = core.DatabaseQueryWithParams(conn,
+                "SELECT TOP (@Count) [ClientName] FROM ClientName WHERE Status = 1 AND ClientName LIKE @Pattern ORDER BY ClientName",
+                new SqlParameter("@Count", count),
+                new SqlParameter("@Pattern", "%" + prefixText + "%"));
+
+            List<string> names = new List<string>();
+            foreach (DataRow row in dt.Rows)
+            {
+                if (row[0] != null)
+                {
+                    names.Add(row[0].ToString());
+                }
             }
             return names;
         }
@@ -230,24 +258,24 @@ namespace Project
             {
                 if (Command == "Edit")
                 {
-                    query = sql.Update_Project_byID.Replace("@IDSelected", ID);
+                    query = _sql.Update_Project_byID.Replace("@IDSelected", ID);
                 }
                 else
                 {
-                    DataTable dtcheck = Core.DatabaseQuery(conn, sql.Select_Project_CheckExist.Replace("@Symphony_Number", TextBox1.Text));
+                    DataTable dtcheck = _core.DatabaseQuery(_conn, _sql.Select_Project_CheckExist.Replace("@Symphony_Number", TextBox1.Text));
                     if (dtcheck.Rows.Count > 0)
                     {
                         ClientScript.RegisterStartupScript(this.GetType(), "myalert", "alert('เลขโปรเจกต์ซ้ำหรือไม่ถูกต้อง');", true);
                     }
                     else
                     {
-                        query = sql.Insert_Project_new;
+                        query = _sql.Insert_Project_new;
 
                     }
                 }
                 try
                 {
-                    using (SqlConnection con = new SqlConnection(conn))
+                    using (SqlConnection con = new SqlConnection(_conn))
                     {
                         using (SqlCommand cmd = new SqlCommand(query))
                         {
@@ -318,11 +346,11 @@ namespace Project
                                     DataChanged += "Project_EndDate[" + dtData.Rows[0]["Project_EndDate"].ToString() + "," + datepicker2.Text + "];";
                                 }
                                 DataChanged += "}";
-                                Core.Logs(conn, "Project", "Update", DataChanged, Session["Email"].ToString());
+                                _core.Logs(_conn, "Project", "Update", DataChanged, Session["Email"].ToString());
                             }
                             else
                             {
-                                Core.Logs(conn, "Project", "Insert", "Insert Symphony_Number = " + TextBox1.Text, Session["Email"].ToString());
+                                _core.Logs(_conn, "Project", "Insert", "Insert Symphony_Number = " + TextBox1.Text, Session["Email"].ToString());
                             }
                         }
                     }
@@ -334,12 +362,12 @@ namespace Project
                 }
                 catch { ClientScript.RegisterStartupScript(this.GetType(), "myalert", "alert('คุณกรอกข้อมูลไม่ครบถ้วนตามที่ระบบต้องการ');", true); }
                 string mainpath = "";
-                if (System.Configuration.ConfigurationSettings.AppSettings["DefaultURL"].ToString() == "" || System.Configuration.ConfigurationSettings.AppSettings["DefaultURL"].ToString() == string.Empty)
+                if (ConfigurationManager.AppSettings["DefaultURL"].ToString() == "" || ConfigurationManager.AppSettings["DefaultURL"].ToString() == string.Empty)
                 {
                 }
                 else
                 {
-                    mainpath = System.Configuration.ConfigurationSettings.AppSettings["DefaultURL"].ToString();
+                    mainpath = ConfigurationManager.AppSettings["DefaultURL"].ToString();
                 }
                 Response.Redirect("/Home");
             }
@@ -351,7 +379,7 @@ namespace Project
 
         protected void DropDownList1_SelectedIndexChanged(object sender, EventArgs e)
         {
-            DataTable dt = Core.DatabaseQuery(conn, "SELECT * FROM [Project].[dbo].[Project_SubType] Where [Status] = 1 AND Project_Type_ID = " + DropDownList1.SelectedItem.Value + " order by SubType ASC");
+            DataTable dt = _core.DatabaseQuery(_conn, "SELECT * FROM [Project].[dbo].[Project_SubType] Where [Status] = 1 AND Project_Type_ID = " + DropDownList1.SelectedItem.Value + " order by SubType ASC");
             DataRow dr = dt.NewRow();
             dr["SubType"] = "---Please Choose---";
             dr["ID"] = 0;
@@ -365,14 +393,14 @@ namespace Project
         protected void GridView1_RowDeleting(object sender, GridViewDeleteEventArgs e)
         {
             dtCost = (DataTable)Session["dtCost"];
-            DataTable dtSearch = Core.DatabaseQuery(conn, "SELECT * FROM [Payment].[dbo].[Payment] Where Project_Cost_ID = " + dtCost.Rows[e.RowIndex]["ID"].ToString() + " AND (Status = 'NEW' OR Status = 'EDITED' OR Status = 'APPROVED')");
+            DataTable dtSearch = _core.DatabaseQuery(_conn, "SELECT * FROM [Payment].[dbo].[Payment] Where Project_Cost_ID = " + dtCost.Rows[e.RowIndex]["ID"].ToString() + " AND (Status = 'NEW' OR Status = 'EDITED' OR Status = 'APPROVED')");
             if (dtSearch.Rows.Count > 0)
             {
                 ClientScript.RegisterStartupScript(this.GetType(), "myalert", "alert('Project Cost นี้มีการทำจ่ายแล้วไม่สามารถลบได้');", true);
             }
             else
             {
-                Core.DatabaseInsert(conn, "DELETE FROM [dbo].[Project_Cost] WHERE ID = " + dtCost.Rows[e.RowIndex]["ID"].ToString());
+                _core.DatabaseInsert(_conn, "DELETE FROM [dbo].[Project_Cost] WHERE ID = " + dtCost.Rows[e.RowIndex]["ID"].ToString());
                 dtCost.Rows[e.RowIndex].Delete();
                 dtCost.AcceptChanges();
 
@@ -383,14 +411,14 @@ namespace Project
 
         protected void Button6_Click(object sender, EventArgs e)
         {
-            DataTable dtSearch = Core.DatabaseQuery(conn, sql.Select_Project_byColumn.Replace("@Column", DropDownList15.SelectedValue).Replace("@Value", TextBox21.Text));
+            DataTable dtSearch = _core.DatabaseQuery(_conn, _sql.Select_Project_byColumn.Replace("@Column", DropDownList15.SelectedValue).Replace("@Value", TextBox21.Text));
             GridView2.DataSource = dtSearch;
             GridView2.DataBind();
         }
 
         protected void GridView2_PageIndexChanging(object sender, GridViewPageEventArgs e)
         {
-            DataTable dtSearch = Core.DatabaseQuery(conn, "SELECT * FROM [Project].[dbo].[Project] inner join Project_Type on Project_Type.ID = Project_Type_ID inner join Project_SubType on Project_SubType.ID = Project_SubType_ID WHERE " + DropDownList15.SelectedItem.Value + " LIKE N'%" + TextBox21.Text + "%'");
+            DataTable dtSearch = _core.DatabaseQuery(_conn, "SELECT * FROM [Project].[dbo].[Project] inner join Project_Type on Project_Type.ID = Project_Type_ID inner join Project_SubType on Project_SubType.ID = Project_SubType_ID WHERE " + DropDownList15.SelectedItem.Value + " LIKE N'%" + TextBox21.Text + "%'");
             GridView2.DataSource = dtSearch;
             GridView2.PageIndex = e.NewPageIndex;
             GridView2.DataBind();
@@ -405,12 +433,12 @@ namespace Project
         protected void Button8_Click(object sender, EventArgs e)
         {
             string mainpath = "";
-            if (System.Configuration.ConfigurationSettings.AppSettings["DefaultURL"].ToString() == "" || System.Configuration.ConfigurationSettings.AppSettings["DefaultURL"].ToString() == string.Empty)
+            if (ConfigurationManager.AppSettings["DefaultURL"].ToString() == "" || ConfigurationManager.AppSettings["DefaultURL"].ToString() == string.Empty)
             {
             }
             else
             {
-                mainpath = System.Configuration.ConfigurationSettings.AppSettings["DefaultURL"].ToString();
+                mainpath = ConfigurationManager.AppSettings["DefaultURL"].ToString();
             }
             Panel1.Visible = false;
             string ID = Request.QueryString["ID"];
@@ -420,12 +448,12 @@ namespace Project
         protected void GridView2_SelectedIndexChanging(object sender, GridViewSelectEventArgs e)
         {
             string mainpath = "";
-            if (System.Configuration.ConfigurationSettings.AppSettings["DefaultURL"].ToString() == "" || System.Configuration.ConfigurationSettings.AppSettings["DefaultURL"].ToString() == string.Empty)
+            if (ConfigurationManager.AppSettings["DefaultURL"].ToString() == "" || ConfigurationManager.AppSettings["DefaultURL"].ToString() == string.Empty)
             {
             }
             else
             {
-                mainpath = System.Configuration.ConfigurationSettings.AppSettings["DefaultURL"].ToString();
+                mainpath = ConfigurationManager.AppSettings["DefaultURL"].ToString();
             }
             Response.Redirect("/Home/Default.aspx?Command=View&ID=" + GridView2.Rows[e.NewSelectedIndex].Cells[1].Text);
         }
@@ -541,12 +569,12 @@ namespace Project
         protected void Button11_Click(object sender, EventArgs e)
         {
             string mainpath = "";
-            if (System.Configuration.ConfigurationSettings.AppSettings["DefaultURL"].ToString() == "" || System.Configuration.ConfigurationSettings.AppSettings["DefaultURL"].ToString() == string.Empty)
+            if (ConfigurationManager.AppSettings["DefaultURL"].ToString() == "" || ConfigurationManager.AppSettings["DefaultURL"].ToString() == string.Empty)
             {
             }
             else
             {
-                mainpath = System.Configuration.ConfigurationSettings.AppSettings["DefaultURL"].ToString();
+                mainpath = ConfigurationManager.AppSettings["DefaultURL"].ToString();
             }
             Response.Redirect("/Project/Import-FW");
         }
@@ -559,48 +587,81 @@ namespace Project
         
         protected void Button9_Click1(object sender, EventArgs e)
         {
-            if (FileUpload1.HasFile)
-            {
-                try
-                {
-
-                    string fileName = Path.GetFileName(FileUpload1.FileName);
-                    string filePath = Server.MapPath("~/Upload/") + fileName;
-                    FileUpload1.SaveAs(filePath);
-
-                    // Read Excel
-                    DataTable dt = new DataTable();
-                    try
-                    {
-                        dt = ReadExcelFile(filePath);
-                    }
-                    catch
-                    {
-                        string htmlContent = System.IO.File.ReadAllText(filePath);
-
-                        dt = HtmlToDataTable(htmlContent);
-
-                    }
-                    // Insert to DB
-
-                    InsertDataToDatabase(dt);
-
-                    LblStatus.Text = "Upload and import successful!";
-
-
-                }
-                catch (Exception ex)
-                {
-
-                    LblStatus.ForeColor = System.Drawing.Color.Red;
-                    LblStatus.Text = "Error: " + ex.Message;
-                }
-                
-            }
-            else
+            if (!FileUpload1.HasFile)
             {
                 LblStatus.ForeColor = System.Drawing.Color.Red;
                 LblStatus.Text = "Please select a file to upload.";
+                return;
+            }
+
+            try
+            {
+                // Validate file extension
+                string originalFileName = Path.GetFileName(FileUpload1.FileName);
+                string fileExtension = Path.GetExtension(originalFileName);
+
+                if (!AllowedFileExtensions.Contains(fileExtension))
+                {
+                    LblStatus.ForeColor = System.Drawing.Color.Red;
+                    LblStatus.Text = "Invalid file type. Only Excel (.xlsx, .xls) and HTML files are allowed.";
+                    return;
+                }
+
+                // Generate safe filename to prevent path traversal
+                string safeFileName = $"{Guid.NewGuid()}{fileExtension}";
+                string uploadDir = Server.MapPath("~/Upload/");
+
+                // Ensure upload directory exists
+                if (!Directory.Exists(uploadDir))
+                {
+                    Directory.CreateDirectory(uploadDir);
+                }
+
+                string filePath = Path.Combine(uploadDir, safeFileName);
+
+                // Verify the path is still within upload directory
+                string fullPath = Path.GetFullPath(filePath);
+                if (!fullPath.StartsWith(Path.GetFullPath(uploadDir), StringComparison.OrdinalIgnoreCase))
+                {
+                    LblStatus.ForeColor = System.Drawing.Color.Red;
+                    LblStatus.Text = "Invalid file path.";
+                    return;
+                }
+
+                FileUpload1.SaveAs(filePath);
+
+                // Read and process file
+                DataTable dt;
+                try
+                {
+                    dt = ReadExcelFile(filePath);
+                }
+                catch
+                {
+                    string htmlContent = File.ReadAllText(filePath);
+                    dt = HtmlToDataTable(htmlContent);
+                }
+
+                InsertDataToDatabase(dt);
+
+                // Clean up uploaded file after processing
+                try
+                {
+                    if (File.Exists(filePath))
+                    {
+                        File.Delete(filePath);
+                    }
+                }
+                catch { }
+
+                LblStatus.ForeColor = System.Drawing.Color.Green;
+                LblStatus.Text = "Upload and import successful!";
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error in file upload: {ex.Message}");
+                LblStatus.ForeColor = System.Drawing.Color.Red;
+                LblStatus.Text = "Error processing file. Please try again.";
             }
         }
 
@@ -646,7 +707,7 @@ namespace Project
 
         private void InsertDataToDatabase(DataTable dataTable)
         {
-            string connectionString = conn.ToString();
+            string connectionString = _conn;
 
             using (SqlConnection conm = new SqlConnection(connectionString))
             {
@@ -690,27 +751,27 @@ namespace Project
                         string StartDate = row["Job Start Date"].ToString();
                         string EndDate = row["Job End Date"].ToString();
 
-                        DataTable dtClient = Core.DatabaseQuery(conn, "SELECT * FROM [Project].[dbo].[ClientName] Where ClientName like '" + ClientName.Replace("'", "''").Replace("&amp;", "&") + "'");
+                        DataTable dtClient = _core.DatabaseQuery(_conn, "SELECT * FROM [Project].[dbo].[ClientName] Where ClientName like '" + ClientName.Replace("'", "''").Replace("&amp;", "&") + "'");
                         if (dtClient.Rows.Count > 0)
                         {
                             ClientID = dtClient.Rows[0]["ID"].ToString();
                         }
                         else
                         {
-                            ClientID = Core.ExecuteScalar(conn, "INSERT INTO [Project].[dbo].[ClientName] ([ClientName]) VALUES ('" + ClientName.Replace("'", "''").Replace("&amp;", "&") + "');").ToString();
+                            ClientID = Core.ExecuteScalar(_conn, "INSERT INTO [Project].[dbo].[ClientName] ([ClientName]) VALUES ('" + ClientName.Replace("'", "''").Replace("&amp;", "&") + "');").ToString();
                         }
 
-                        DataTable dtMarketSector = Core.DatabaseQuery(conn, "SELECT * FROM [Project].[dbo].[MarketSector] Where SectorName like '" + MarketSector.Replace("&amp;", "&") + "'");
+                        DataTable dtMarketSector = _core.DatabaseQuery(_conn, "SELECT * FROM [Project].[dbo].[MarketSector] Where SectorName like '" + MarketSector.Replace("&amp;", "&") + "'");
                         if (dtMarketSector.Rows.Count > 0)
                         {
                             MarketSectorID = dtMarketSector.Rows[0]["ID"].ToString();
                         }
                         else
                         {
-                            MarketSectorID = Core.ExecuteScalar(conn, "INSERT INTO [Project].[dbo].[MarketSector] ([SectorName]) VALUES ('" + MarketSector.Replace("&amp;", "&") + "');").ToString();
+                            MarketSectorID = Core.ExecuteScalar(_conn, "INSERT INTO [Project].[dbo].[MarketSector] ([SectorName]) VALUES ('" + MarketSector.Replace("&amp;", "&") + "');").ToString();
                         }
 
-                        DataTable dtSubProjectType = Core.DatabaseQuery(conn, "SELECT * FROM [Project].[dbo].[Project_SubType] Where SubType like '" + SubProject_Type.Replace("&amp;", "&") + "'");
+                        DataTable dtSubProjectType = _core.DatabaseQuery(_conn, "SELECT * FROM [Project].[dbo].[Project_SubType] Where SubType like '" + SubProject_Type.Replace("&amp;", "&") + "'");
                         if (dtSubProjectType.Rows.Count > 0)
                         {
                             ProjectTypeID = dtSubProjectType.Rows[0]["Project_Type_ID"].ToString();
@@ -718,22 +779,22 @@ namespace Project
                         }
                         else
                         {
-                            ProjectTypeID = Core.ExecuteScalar(conn, "INSERT INTO [Project].[dbo].[Project_Type] ([Project_Type]) VALUES ('" + Project_Type.Replace("&amp;", "&") + "');").ToString();
-                            SubProjectTypeID = Core.ExecuteScalar(conn, "INSERT INTO [Project].[dbo].[Project_SubType] ([Project_Type_ID],[SubType]) VALUES (" + ProjectTypeID + ",'" + SubProject_Type.Replace("&amp;", "&") + "');").ToString();
+                            ProjectTypeID = Core.ExecuteScalar(_conn, "INSERT INTO [Project].[dbo].[Project_Type] ([Project_Type]) VALUES ('" + Project_Type.Replace("&amp;", "&") + "');").ToString();
+                            SubProjectTypeID = Core.ExecuteScalar(_conn, "INSERT INTO [Project].[dbo].[Project_SubType] ([Project_Type_ID],[SubType]) VALUES (" + ProjectTypeID + ",'" + SubProject_Type.Replace("&amp;", "&") + "');").ToString();
                         }
 
-                        DataTable dtProjectType = Core.DatabaseQuery(conn, "SELECT * FROM [Project].[dbo].[Project_Type] Where Project_Type like '" + Project_Type.Replace("&amp;", "&") + "'");
+                        DataTable dtProjectType = _core.DatabaseQuery(_conn, "SELECT * FROM [Project].[dbo].[Project_Type] Where Project_Type like '" + Project_Type.Replace("&amp;", "&") + "'");
                         if (dtProjectType.Rows.Count > 0)
                         {
                             ProjectTypeID = dtProjectType.Rows[0]["ID"].ToString();
                         }
                         else
                         {
-                            ProjectTypeID = Core.ExecuteScalar(conn, "INSERT INTO [Project].[dbo].[Project_Type] ([Project_Type]) VALUES ('" + Project_Type + "');").ToString();
+                            ProjectTypeID = Core.ExecuteScalar(_conn, "INSERT INTO [Project].[dbo].[Project_Type] ([Project_Type]) VALUES ('" + Project_Type + "');").ToString();
                         }
 
 
-                        DataTable dtProject = Core.DatabaseQuery(conn, "SELECT * FROM [Project].[dbo].[Project] Where REPLACE(Symphony_Number, '-', '') = '" + row["Job ID"].ToString() + "'");
+                        DataTable dtProject = _core.DatabaseQuery(_conn, "SELECT * FROM [Project].[dbo].[Project] Where REPLACE(Symphony_Number, '-', '') = '" + row["Job ID"].ToString() + "'");
 
                         string ProjectStartDate = "";
                         string ProjectEndDate = "";
@@ -773,31 +834,31 @@ namespace Project
                         {
                             if (dtProject.Rows.Count > 0 && a == true && b == true && Symphony_Number.Length > 0)
                             {
-                                Core.DatabaseInsert(conn, "UPDATE [dbo].[Project] SET  [Project_StartDate] = '" + ProjectStartDate + "' ,[Project_EndDate] = '" + ProjectEndDate + "', [Status] = '" + Status + "', [Project_Owner] = '"+Project_Owner+ "',ClientName_ID = '"+ClientID+ "',Creator = '" + Session["Email"].ToString() +"' Where REPLACE(Symphony_Number, '-', '') = '" + row["Job ID"].ToString() + "'");
+                                _core.DatabaseInsert(_conn, "UPDATE [dbo].[Project] SET  [Project_StartDate] = '" + ProjectStartDate + "' ,[Project_EndDate] = '" + ProjectEndDate + "', [Status] = '" + Status + "', [Project_Owner] = '"+Project_Owner+ "',ClientName_ID = '"+ClientID+ "',Creator = '" + Session["Email"].ToString() +"' Where REPLACE(Symphony_Number, '-', '') = '" + row["Job ID"].ToString() + "'");
                             }
                             else if (dtProject.Rows.Count > 0 && a == true && b == false && Symphony_Number.Length > 0)
                             {
-                                Core.DatabaseInsert(conn, "UPDATE [dbo].[Project] SET  [Project_StartDate] = '" + ProjectStartDate + "' ,[Project_EndDate] = '" + ProjectEndDate + "', [Status] = '" + Status + "', [Project_Owner] = '"+Project_Owner+ "',ClientName_ID = '"+ClientID+ "',Creator = '" + Session["Email"].ToString() +"' Where REPLACE(Symphony_Number, '-', '') = '" + row["Job ID"].ToString() + "'");
+                                _core.DatabaseInsert(_conn, "UPDATE [dbo].[Project] SET  [Project_StartDate] = '" + ProjectStartDate + "' ,[Project_EndDate] = '" + ProjectEndDate + "', [Status] = '" + Status + "', [Project_Owner] = '"+Project_Owner+ "',ClientName_ID = '"+ClientID+ "',Creator = '" + Session["Email"].ToString() +"' Where REPLACE(Symphony_Number, '-', '') = '" + row["Job ID"].ToString() + "'");
                             }
                             else if (dtProject.Rows.Count > 0 && a == false && b == true && Symphony_Number.Length > 0)
                             {
-                                Core.DatabaseInsert(conn, "UPDATE [dbo].[Project] SET  [Project_StartDate] = '" + ProjectStartDate + "' ,[Project_EndDate] = '" + ProjectEndDate + "', [Status] = '" + Status + "', [Project_Owner] = '"+Project_Owner+ "',ClientName_ID = '"+ClientID+ "',Creator = '" + Session["Email"].ToString() +"' Where REPLACE(Symphony_Number, '-', '') = '" + row["Job ID"].ToString() + "'");
+                                _core.DatabaseInsert(_conn, "UPDATE [dbo].[Project] SET  [Project_StartDate] = '" + ProjectStartDate + "' ,[Project_EndDate] = '" + ProjectEndDate + "', [Status] = '" + Status + "', [Project_Owner] = '"+Project_Owner+ "',ClientName_ID = '"+ClientID+ "',Creator = '" + Session["Email"].ToString() +"' Where REPLACE(Symphony_Number, '-', '') = '" + row["Job ID"].ToString() + "'");
                             }
                             else if (dtProject.Rows.Count > 0 && a == false && b == false && Symphony_Number.Length > 0)
                             {
-                                Core.DatabaseInsert(conn, "UPDATE [dbo].[Project] SET  [Project_StartDate] = NULL ,[Project_EndDate] = NULL, [Status] = '" + Status + "', [Project_Owner] = '"+Project_Owner+ "',ClientName_ID = '"+ClientID+ "',Creator = '" + Session["Email"].ToString() +"'  Where REPLACE(Symphony_Number, '-', '') = '" + row["Job ID"].ToString() + "'");
+                                _core.DatabaseInsert(_conn, "UPDATE [dbo].[Project] SET  [Project_StartDate] = NULL ,[Project_EndDate] = NULL, [Status] = '" + Status + "', [Project_Owner] = '"+Project_Owner+ "',ClientName_ID = '"+ClientID+ "',Creator = '" + Session["Email"].ToString() +"'  Where REPLACE(Symphony_Number, '-', '') = '" + row["Job ID"].ToString() + "'");
                             }
                             else if (dtProject.Rows.Count == 0 && a == true && b == true && Symphony_Number.Length > 0)
                             {
-                                Core.DatabaseInsert(conn, "INSERT INTO [dbo].[Project] ([Symphony_Number],[Project_Name],[Project_Type_ID],[Project_SubType_ID],[Project_StartDate],[Project_EndDate],[Project_Owner],[Creator],[Created_DateTime],[Status],[ClientName_ID],[MarketSector_ID]) VALUES ('" + ChangeSymNumber(Symphony_Number) + "','" + Project_Name.Replace("'", "''") + "','" + ProjectTypeID + "','" + SubProjectTypeID + "','" + Convert.ToDateTime(StartDate).ToString("yyyy-MM-dd") + "','" + Convert.ToDateTime(EndDate).ToString("yyyy-MM-dd") + "','" + Project_Owner + "','" + Session["Email"].ToString() + "','" + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + "','" + Status + "','" + ClientID + "','" + MarketSectorID + "')");
+                                _core.DatabaseInsert(_conn, "INSERT INTO [dbo].[Project] ([Symphony_Number],[Project_Name],[Project_Type_ID],[Project_SubType_ID],[Project_StartDate],[Project_EndDate],[Project_Owner],[Creator],[Created_DateTime],[Status],[ClientName_ID],[MarketSector_ID]) VALUES ('" + ChangeSymNumber(Symphony_Number) + "','" + Project_Name.Replace("'", "''") + "','" + ProjectTypeID + "','" + SubProjectTypeID + "','" + Convert.ToDateTime(StartDate).ToString("yyyy-MM-dd") + "','" + Convert.ToDateTime(EndDate).ToString("yyyy-MM-dd") + "','" + Project_Owner + "','" + Session["Email"].ToString() + "','" + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + "','" + Status + "','" + ClientID + "','" + MarketSectorID + "')");
                             }
                             else if (dtProject.Rows.Count == 0 && a == true && b == false && Symphony_Number.Length > 0)
                             {
-                                Core.DatabaseInsert(conn, "INSERT INTO [dbo].[Project] ([Symphony_Number],[Project_Name],[Project_Type_ID],[Project_SubType_ID],[Project_StartDate],[Project_EndDate],[Project_Owner],[Creator],[Created_DateTime],[Status],[ClientName_ID],[MarketSector_ID]) VALUES ('" + ChangeSymNumber(Symphony_Number) + "','" + Project_Name.Replace("'", "''") + "','" + ProjectTypeID + "','" + SubProjectTypeID + "','" + Convert.ToDateTime(StartDate).ToString("yyyy-MM-dd") + "',NULL,'" + Project_Owner + "','" + Session["Email"].ToString() + "','" + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + "','" + Status + "','" + ClientID + "','" + MarketSectorID + "')");
+                                _core.DatabaseInsert(_conn, "INSERT INTO [dbo].[Project] ([Symphony_Number],[Project_Name],[Project_Type_ID],[Project_SubType_ID],[Project_StartDate],[Project_EndDate],[Project_Owner],[Creator],[Created_DateTime],[Status],[ClientName_ID],[MarketSector_ID]) VALUES ('" + ChangeSymNumber(Symphony_Number) + "','" + Project_Name.Replace("'", "''") + "','" + ProjectTypeID + "','" + SubProjectTypeID + "','" + Convert.ToDateTime(StartDate).ToString("yyyy-MM-dd") + "',NULL,'" + Project_Owner + "','" + Session["Email"].ToString() + "','" + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + "','" + Status + "','" + ClientID + "','" + MarketSectorID + "')");
                             }
                             else if (dtProject.Rows.Count == 0 && a == false && b == false && Symphony_Number.Length > 0)
                             {
-                                Core.DatabaseInsert(conn, "INSERT INTO [dbo].[Project] ([Symphony_Number],[Project_Name],[Project_Type_ID],[Project_SubType_ID],[Project_StartDate],[Project_EndDate],[Project_Owner],[Creator],[Created_DateTime],[Status],[ClientName_ID],[MarketSector_ID]) VALUES ('" + ChangeSymNumber(Symphony_Number) + "','" + Project_Name.Replace("'", "''") + "','" + ProjectTypeID + "','" + SubProjectTypeID + "',NULL,NULL,'" + Project_Owner + "','" + Session["Email"].ToString() + "','" + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + "','" + Status + "','" + ClientID + "','" + MarketSectorID + "')");
+                                _core.DatabaseInsert(_conn, "INSERT INTO [dbo].[Project] ([Symphony_Number],[Project_Name],[Project_Type_ID],[Project_SubType_ID],[Project_StartDate],[Project_EndDate],[Project_Owner],[Creator],[Created_DateTime],[Status],[ClientName_ID],[MarketSector_ID]) VALUES ('" + ChangeSymNumber(Symphony_Number) + "','" + Project_Name.Replace("'", "''") + "','" + ProjectTypeID + "','" + SubProjectTypeID + "',NULL,NULL,'" + Project_Owner + "','" + Session["Email"].ToString() + "','" + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + "','" + Status + "','" + ClientID + "','" + MarketSectorID + "')");
                             }
                         }
                         catch { }

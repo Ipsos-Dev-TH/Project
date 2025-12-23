@@ -13,9 +13,6 @@ using System.Text;
 
 namespace Project
 {
-    public class Code
-    {
-    }
     public class Core
     {
         public string status_new = "NEW";
@@ -31,35 +28,80 @@ namespace Project
 
             using (SqlConnection con = new SqlConnection(connStr))
             {
-                
                 try
                 {
                     cmd = cmd.Replace("&amp;", "&");
                     cmd = cmd.Replace("&#39;", "''");
                     cmd = cmd.Replace("&nbsp;", "");
-                    
+
                     SqlDataAdapter adapter = new SqlDataAdapter(cmd, con);
                     adapter.Fill(dt);
                 }
-                catch { }
+                catch (SqlException ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"SQL Error in DatabaseQuery: {ex.Message}");
+                }
             }
             return dt;
         }
 
+        public DataTable DatabaseQueryWithParams(string connStr, string cmd, params SqlParameter[] parameters)
+        {
+            DataTable dt = new DataTable();
 
+            using (SqlConnection con = new SqlConnection(connStr))
+            {
+                try
+                {
+                    using (SqlCommand command = new SqlCommand(cmd, con))
+                    {
+                        if (parameters != null)
+                        {
+                            command.Parameters.AddRange(parameters);
+                        }
+                        SqlDataAdapter adapter = new SqlDataAdapter(command);
+                        adapter.Fill(dt);
+                    }
+                }
+                catch (SqlException ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"SQL Error in DatabaseQueryWithParams: {ex.Message}");
+                }
+            }
+            return dt;
+        }
 
-        public int CheckPermission (string conn, string colmnname , string Email)
+        public int CheckPermission(string conn, string columnName, string email)
         {
             int check = 0;
 
-            DataTable dt = DatabaseQuery(conn, "SELECT * FROM [Payment].[dbo].[User] inner join [Role] on Role_ID = [Role].ID Where [User] = '"+Email.ToLower()+"'");
+            // Validate column name against whitelist to prevent SQL injection
+            string[] allowedColumns = { "CanView", "CanEdit", "CanDelete", "CanApprove", "IsAdmin" };
+            if (!Array.Exists(allowedColumns, col => col.Equals(columnName, StringComparison.OrdinalIgnoreCase)))
+            {
+                return -1;
+            }
+
+            string query = $"SELECT * FROM [Payment].[dbo].[User] INNER JOIN [Role] ON Role_ID = [Role].ID WHERE [User] = @Email";
+            DataTable dt = DatabaseQueryWithParams(conn, query, new SqlParameter("@Email", email.ToLower()));
+
             try
             {
-                check = Convert.ToInt32(dt.Rows[0][colmnname].ToString());
+                if (dt.Rows.Count > 0)
+                {
+                    check = Convert.ToInt32(dt.Rows[0][columnName].ToString());
+                }
+                else
+                {
+                    check = -1;
+                }
             }
-            catch { check = -1; }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error in CheckPermission: {ex.Message}");
+                check = -1;
+            }
             return check;
-
         }
 
         public void DatabaseInsert(string connStr, string cmd)
@@ -68,11 +110,43 @@ namespace Project
             {
                 using (SqlCommand command = new SqlCommand(cmd, connection))
                 {
-                    cmd = cmd.Replace("&nbsp;", "");
-                    cmd = cmd.Replace("&amp;", "&");
-                    connection.Open(); 
-                    int result = command.ExecuteNonQuery();
-                    connection.Close();
+                    try
+                    {
+                        cmd = cmd.Replace("&nbsp;", "");
+                        cmd = cmd.Replace("&amp;", "&");
+                        command.CommandText = cmd;
+                        connection.Open();
+                        command.ExecuteNonQuery();
+                    }
+                    catch (SqlException ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"SQL Error in DatabaseInsert: {ex.Message}");
+                        throw;
+                    }
+                }
+            }
+        }
+
+        public void DatabaseInsertWithParams(string connStr, string cmd, params SqlParameter[] parameters)
+        {
+            using (SqlConnection connection = new SqlConnection(connStr))
+            {
+                using (SqlCommand command = new SqlCommand(cmd, connection))
+                {
+                    try
+                    {
+                        if (parameters != null)
+                        {
+                            command.Parameters.AddRange(parameters);
+                        }
+                        connection.Open();
+                        command.ExecuteNonQuery();
+                    }
+                    catch (SqlException ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"SQL Error in DatabaseInsertWithParams: {ex.Message}");
+                        throw;
+                    }
                 }
             }
         }
@@ -169,12 +243,29 @@ namespace Project
 
         public string Crypt(string text)
         {
-            return Convert.ToBase64String((Encoding.Unicode.GetBytes(text)));
+            if (string.IsNullOrEmpty(text))
+                return string.Empty;
+            return Convert.ToBase64String(Encoding.Unicode.GetBytes(text));
         }
 
+        public string Decrypt(string text)
+        {
+            if (string.IsNullOrEmpty(text))
+                return string.Empty;
+            try
+            {
+                return Encoding.Unicode.GetString(Convert.FromBase64String(text));
+            }
+            catch (FormatException)
+            {
+                return string.Empty;
+            }
+        }
+
+        [Obsolete("Use Decrypt instead")]
         public string Derypt(string text)
         {
-            return Encoding.Unicode.GetString((Convert.FromBase64String(text)));
+            return Decrypt(text);
         }
 
         public byte[] EncryptStringToBytes(string plainText, byte[] Key, byte[] IV)
@@ -267,29 +358,65 @@ namespace Project
             return plaintext;
         }
 
-        public int CheckProjectCostQuantity(string conn, string Project_Cost_ID,DataTable dtInput,string quantitycolumnname)
+        public int CheckProjectCostQuantity(string conn, string projectCostId, DataTable dtInput, string quantityColumnName)
         {
-
-            DataTable dtQuantityLimit = DatabaseQuery(conn, "SELECT * FROM [Payment].[dbo].[Project_Cost] Where ID = " + Project_Cost_ID);
-
-            DataTable dtPayment = DatabaseQuery(conn, "SELECT * FROM [Payment].[dbo].[Payment] Where Project_Cost_ID = " + Project_Cost_ID + " AND (Status != '" + status_deleted + "' AND Status != '" + status_declined + "' AND Status != '" + status_predeclined + "')");
-            DataTable dtWorkSheet = DatabaseQuery(conn, "SELECT *  FROM [Payment].[dbo].[TemporaryEmployee_Worksheet] Where Project_Cost_ID = " + Project_Cost_ID + " AND (Status != 'MAKE PAYMENT' AND Status != '" + status_deleted + "' AND Status != '" + status_declined + "'  AND Status != '" + status_declined + "')");
-
-            int QuantityUsed = 0;
-            for(int i = 0;i<dtPayment.Rows.Count;i++)
+            // Validate projectCostId is a valid integer to prevent SQL injection
+            if (!int.TryParse(projectCostId, out int costId))
             {
-                QuantityUsed += Int32.Parse(dtPayment.Rows[i]["Payment_Quantity"].ToString());
-            }
-            for (int i = 0; i < dtWorkSheet.Rows.Count; i++)
-            {
-                QuantityUsed += Int32.Parse(dtWorkSheet.Rows[i]["Quantity"].ToString());
-            }
-            for (int i = 0; i < dtInput.Rows.Count; i++)
-            {
-                QuantityUsed += Int32.Parse(dtInput.Rows[i][quantitycolumnname].ToString());
+                return 0;
             }
 
-            return QuantityUsed;
+            string queryQuantityLimit = "SELECT * FROM [Payment].[dbo].[Project_Cost] WHERE ID = @CostId";
+            DataTable dtQuantityLimit = DatabaseQueryWithParams(conn, queryQuantityLimit,
+                new SqlParameter("@CostId", costId));
+
+            string queryPayment = @"SELECT * FROM [Payment].[dbo].[Payment]
+                                    WHERE Project_Cost_ID = @CostId
+                                    AND Status NOT IN (@StatusDeleted, @StatusDeclined, @StatusPreDeclined)";
+            DataTable dtPayment = DatabaseQueryWithParams(conn, queryPayment,
+                new SqlParameter("@CostId", costId),
+                new SqlParameter("@StatusDeleted", status_deleted),
+                new SqlParameter("@StatusDeclined", status_declined),
+                new SqlParameter("@StatusPreDeclined", status_predeclined));
+
+            string queryWorkSheet = @"SELECT * FROM [Payment].[dbo].[TemporaryEmployee_Worksheet]
+                                      WHERE Project_Cost_ID = @CostId
+                                      AND Status NOT IN ('MAKE PAYMENT', @StatusDeleted, @StatusDeclined)";
+            DataTable dtWorkSheet = DatabaseQueryWithParams(conn, queryWorkSheet,
+                new SqlParameter("@CostId", costId),
+                new SqlParameter("@StatusDeleted", status_deleted),
+                new SqlParameter("@StatusDeclined", status_declined));
+
+            int quantityUsed = 0;
+
+            foreach (DataRow row in dtPayment.Rows)
+            {
+                if (int.TryParse(row["Payment_Quantity"]?.ToString(), out int qty))
+                {
+                    quantityUsed += qty;
+                }
+            }
+
+            foreach (DataRow row in dtWorkSheet.Rows)
+            {
+                if (int.TryParse(row["Quantity"]?.ToString(), out int qty))
+                {
+                    quantityUsed += qty;
+                }
+            }
+
+            if (dtInput != null && dtInput.Columns.Contains(quantityColumnName))
+            {
+                foreach (DataRow row in dtInput.Rows)
+                {
+                    if (int.TryParse(row[quantityColumnName]?.ToString(), out int qty))
+                    {
+                        quantityUsed += qty;
+                    }
+                }
+            }
+
+            return quantityUsed;
         }
     }
 }

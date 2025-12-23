@@ -1,140 +1,110 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
+using System;
+using System.Configuration;
+using System.DirectoryServices.AccountManagement;
+using System.Net.Mail;
+using System.Text.RegularExpressions;
 using System.Web;
 using System.Web.UI;
-using System.Web.UI.WebControls;
-using System.DirectoryServices.Protocols;
-using System.Net;
-using System.DirectoryServices.AccountManagement;
-using System.DirectoryServices;
-using System.DirectoryServices.ActiveDirectory;
-using System.DirectoryServices.Protocols;
-using System.Text;
-using System.Text.RegularExpressions;
-using System.Net.Mail;
-using System.Configuration;
-using System.Security.Cryptography;
-using System.Web.Services;
-using System.Web.Script.Services;
 
 namespace Project
 {
     public partial class _Default : Page
     {
+        private readonly Core _core = new Core();
+        private readonly string _ldap = ConfigurationManager.AppSettings["LDAP"];
 
-        Core Core = new Core();
-        string ldap = ConfigurationSettings.AppSettings["LDAP"];
         protected void Page_Load(object sender, EventArgs e)
         {
-            string email = Core.GetURIparameter("access", HttpContext.Current.Request.Url.AbsoluteUri);
-            string mainpath = "";
-            if (System.Configuration.ConfigurationSettings.AppSettings["DefaultURL"].ToString() == "" || System.Configuration.ConfigurationSettings.AppSettings["DefaultURL"].ToString() == string.Empty)
-            {
-
-            }
-            else
-            {
-                mainpath = System.Configuration.ConfigurationSettings.AppSettings["DefaultURL"].ToString();
-            }
+            string email = _core.GetURIparameter("access", HttpContext.Current.Request.Url.AbsoluteUri);
 
             try
             {
-                if(email.Length > 0)
+                if (!string.IsNullOrEmpty(email))
                 {
-                    //email = Core.Crypt(email);
-                    email = Core.Derypt(email);
+                    email = _core.Decrypt(email);
                     email = email.ToLower();
-                    if (email.Contains("@ipsos.com"))
+
+                    if (IsValidIpsosEmail(email))
                     {
                         Session["LoginStatus"] = "true";
                         Session["Email"] = email;
-                        Response.Redirect("/Home");
+                        Response.Redirect("/Home", false);
                     }
                 }
             }
-            catch
+            catch (Exception ex)
             {
-
+                System.Diagnostics.Debug.WriteLine($"Error in Page_Load: {ex.Message}");
             }
         }
+
         protected void Button1_Click(object sender, EventArgs e)
         {
-            string mainpath = "";
-            if (System.Configuration.ConfigurationSettings.AppSettings["DefaultURL"].ToString() == "" || System.Configuration.ConfigurationSettings.AppSettings["DefaultURL"].ToString() == string.Empty)
-            {
-            }
-            else
-            {
-                mainpath = System.Configuration.ConfigurationSettings.AppSettings["DefaultURL"].ToString();
-            }
             try
             {
-                //PrincipalContext pc = new PrincipalContext(ContextType.Domain, "ipsosgroup.ipsos.com");
-                //bool LoginStatus = pc.ValidateCredentials(TextBox1.Text, TextBox2.Text);
-                //bool LoginStatus = true;
                 bool isValid = false;
-                try
+
+                if (IsValidEmailInput(TextBox1.Text))
                 {
-                    //DirectoryContext context = new DirectoryContext(DirectoryContextType.DirectoryServer, "10.137.157.210", TextBox1.Text, TextBox2.Text);
-                    //DirectoryEntry deDoc = Domain.GetDomain(context).GetDirectoryEntry();
-
-
-                    //DirectorySearcher search = new DirectorySearcher(deDoc);
-
-                    //search.Filter = "(mail=" + TextBox1.Text + ")";
-
-                    //search.PropertiesToLoad.Add("cn");
-
-                    //SearchResult result = search.FindOne();
-
-                    //if (result == null)
-                    //{
-                    //    LoginStatus = false;
-                    //}
-                    //else
-                    //{
-                    //    LoginStatus = true;
-                    //}
-                    if (checkEmailFormat(TextBox1.Text) && Regex.IsMatch(TextBox1.Text[0].ToString(), "^[a-zA-Z]*$") && Regex.IsMatch(TextBox1.Text[TextBox1.Text.Length - 1].ToString(), "^[a-zA-Z]*$"))
+                    try
                     {
-                        using (PrincipalContext pc = new PrincipalContext(ContextType.Domain, ldap))
+                        using (PrincipalContext pc = new PrincipalContext(ContextType.Domain, _ldap))
                         {
-                            // validate the credentials
                             isValid = pc.ValidateCredentials(TextBox1.Text, TextBox2.Text);
                         }
                     }
-                    else
+                    catch (Exception ex)
                     {
-
+                        System.Diagnostics.Debug.WriteLine($"LDAP authentication error: {ex.Message}");
                     }
+                }
 
-                }
-                catch (Exception ex)
-                {
-                }
-                if (isValid == true)
+                if (isValid)
                 {
                     Session["LoginStatus"] = "true";
                     Session["Email"] = TextBox1.Text;
-                    Response.Redirect("/Home");
+                    Response.Redirect("/Home", false);
                 }
                 else
                 {
                     ClientScript.RegisterStartupScript(this.GetType(), "myalert", "alert('Login Failed');", true);
                 }
             }
-            catch (Exception ex) { }
-
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error in Button1_Click: {ex.Message}");
+                ClientScript.RegisterStartupScript(this.GetType(), "myalert", "alert('An error occurred. Please try again.');", true);
+            }
         }
 
-
-        public bool checkEmailFormat(string emailaddress)
+        private bool IsValidEmailInput(string email)
         {
+            if (string.IsNullOrWhiteSpace(email) || email.Length < 3)
+            {
+                return false;
+            }
+
+            return CheckEmailFormat(email) &&
+                   Regex.IsMatch(email[0].ToString(), "^[a-zA-Z]$") &&
+                   Regex.IsMatch(email[email.Length - 1].ToString(), "^[a-zA-Z]$");
+        }
+
+        private bool IsValidIpsosEmail(string email)
+        {
+            return !string.IsNullOrEmpty(email) &&
+                   email.EndsWith("@ipsos.com", StringComparison.OrdinalIgnoreCase);
+        }
+
+        public bool CheckEmailFormat(string emailAddress)
+        {
+            if (string.IsNullOrWhiteSpace(emailAddress))
+            {
+                return false;
+            }
+
             try
             {
-                MailAddress m = new MailAddress(emailaddress);
-
+                var mailAddress = new MailAddress(emailAddress);
                 return true;
             }
             catch (FormatException)

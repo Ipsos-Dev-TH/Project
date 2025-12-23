@@ -1,55 +1,56 @@
-﻿
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Web;
+using System.Configuration;
+using System.Data;
+using System.Data.SqlClient;
 using System.Web.Services;
 using System.Web.Script.Services;
-using System.Data.OleDb;
-using System.Configuration;
-using System.Web.UI;
-using System.Web.UI.WebControls;
-using System.Data;
-using Project;
-using System.IO;
-using System.Data.SqlClient;
 
 namespace Project
 {
     /// <summary>
-    /// Summary description for MyDictionary
+    /// Web service for client name autocomplete functionality
     /// </summary>
     [WebService(Namespace = "http://tempuri.org/")]
     [WebServiceBinding(ConformsTo = WsiProfiles.BasicProfile1_1)]
-    // To allow this Web Service to be called from script, using ASP.NET AJAX, uncomment the following line. 
-    [System.Web.Script.Services.ScriptService]
-    public class GetClientName : System.Web.Services.WebService
+    [ScriptService]
+    public class GetClientName : WebService
     {
+        private readonly Core _core = new Core();
+        private readonly string _connectionString = ConfigurationManager.ConnectionStrings["ProjectConnectionString"].ConnectionString;
 
-        public GetClientName()
-        {
-
-            //Uncomment the following line if using designed components 
-            //InitializeComponent(); 
-        }
-
-        [System.Web.Services.WebMethod]
-        [System.Web.Script.Services.ScriptMethod]
-        //removed static modifier
-        //display error: Unknown web method searchInDictionary.
+        [WebMethod]
+        [ScriptMethod]
         public List<string> searchInDictionary(string prefixText, int count)
         {
-            Core Core = new Core();
-            string conn = ConfigurationManager.ConnectionStrings["ProjectConnectionString"].ConnectionString;
-
-            DataTable dt = Core.DatabaseQuery(conn, "Select [ClientName] from ClientName Where Status = 1 And ClientName like '%" + prefixText + "%'");
             List<string> names = new List<string>();
-            for (int i = 0; i < dt.Rows.Count; i++)
+
+            if (string.IsNullOrWhiteSpace(prefixText))
             {
-                names.Add(dt.Rows[i][0].ToString());
+                return names;
             }
+
+            // Limit count to prevent excessive data retrieval
+            if (count <= 0 || count > 100)
+            {
+                count = 20;
+            }
+
+            string query = "SELECT TOP (@Count) [ClientName] FROM ClientName WHERE Status = 1 AND ClientName LIKE @SearchPattern ORDER BY ClientName";
+
+            DataTable dt = _core.DatabaseQueryWithParams(_connectionString, query,
+                new SqlParameter("@Count", count),
+                new SqlParameter("@SearchPattern", "%" + prefixText + "%"));
+
+            foreach (DataRow row in dt.Rows)
+            {
+                if (row[0] != null)
+                {
+                    names.Add(row[0].ToString());
+                }
+            }
+
             return names;
         }
-
     }
 }

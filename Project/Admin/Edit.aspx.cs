@@ -1,110 +1,149 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Web;
+using System.Data;
+using System.Data.SqlClient;
+using System.Configuration;
 using System.Web.UI;
 using System.Web.UI.WebControls;
-using System.Data;
-using System.Configuration;
 
 namespace Project.Admin
 {
     public partial class Edit : System.Web.UI.Page
     {
-        Core Core = new Core();
-        string conn = ConfigurationManager.ConnectionStrings["ProjectConnectionString"].ConnectionString;
-        static DataTable dt = new DataTable();
-        static DataTable dtshow = new DataTable();
-        static string data = string.Empty;
-        static string BU = string.Empty;
-        static string supplierid = string.Empty;
-        static string Email = "";
+        private readonly Core _core = new Core();
+        private readonly string _conn = ConfigurationManager.ConnectionStrings["ProjectConnectionString"].ConnectionString;
+
+        // Whitelist of allowed table names for editing
+        private static readonly HashSet<string> AllowedTables = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "Project_Type", "Project_SubType", "Product_Type", "ClientName", "MarketSector"
+        };
+
+        // Session-based properties instead of static variables
+        private DataTable CurrentDataTable
+        {
+            get => Session["Admin_Edit_dt"] as DataTable ?? new DataTable();
+            set => Session["Admin_Edit_dt"] = value;
+        }
+
+        private DataTable DisplayDataTable
+        {
+            get => Session["Admin_Edit_dtshow"] as DataTable ?? new DataTable();
+            set => Session["Admin_Edit_dtshow"] = value;
+        }
+
+        private string CurrentData
+        {
+            get => Session["Admin_Edit_data"] as string ?? string.Empty;
+            set => Session["Admin_Edit_data"] = value;
+        }
+
+        private string CurrentBU
+        {
+            get => Session["Admin_Edit_BU"] as string ?? string.Empty;
+            set => Session["Admin_Edit_BU"] = value;
+        }
+
+        private string CurrentEmail
+        {
+            get => Session["Email"] as string ?? string.Empty;
+        }
+
         protected void Page_Load(object sender, EventArgs e)
         {
             try
             {
-                Email = Session["Email"].ToString();
-                
-                data = Request.QueryString["data"];
-                BU = Request.QueryString["BU"];
-                supplierid = Request.QueryString["supplierid"];
+                if (string.IsNullOrEmpty(CurrentEmail))
+                {
+                    Response.Redirect("/Home", false);
+                    return;
+                }
+
+                string data = Request.QueryString["data"];
+                string bu = Request.QueryString["BU"];
+
+                // Validate table name against whitelist
+                if (!string.IsNullOrEmpty(data) && !AllowedTables.Contains(data))
+                {
+                    Response.Redirect("/", false);
+                    return;
+                }
+
+                CurrentData = data ?? string.Empty;
+                CurrentBU = bu ?? string.Empty;
+
                 if (!IsPostBack)
                 {
-
-                    readData();
+                    ReadData();
                 }
-                else { }
             }
-            catch
+            catch (Exception ex)
             {
-                Response.Redirect("/Home");
+                System.Diagnostics.Debug.WriteLine($"Error in Page_Load: {ex.Message}");
+                Response.Redirect("/Home", false);
             }
         }
 
-        public void readData()
+        public void ReadData()
         {
-            Email = Session["Email"].ToString();
+            string data = CurrentData;
+            DataTable dt;
+
             if (data == "Project_SubType")
             {
-                string ID = Request.QueryString["TypeID"];
-                DataTable dtt = Core.DatabaseQuery(conn, "Select [Project_Type] From Project_Type Where [Status] = 'True' AND  ID = " + ID);
-                dt = Core.DatabaseQuery(conn, "Select * From Project_SubType Where [Status] = 'True' AND  Project_Type_ID = " + ID);
-                string name = dtt.Rows[0][0].ToString();
-                Label1.Text = "Editing Data of " + data + " that Project Type is " + name;
+                string typeIdStr = Request.QueryString["TypeID"];
+                if (!int.TryParse(typeIdStr, out int typeId))
+                {
+                    Response.Redirect("/", false);
+                    return;
+                }
+
+                DataTable dtt = _core.DatabaseQueryWithParams(_conn,
+                    "SELECT [Project_Type] FROM Project_Type WHERE [Status] = 'True' AND ID = @TypeId",
+                    new SqlParameter("@TypeId", typeId));
+
+                dt = _core.DatabaseQueryWithParams(_conn,
+                    "SELECT * FROM Project_SubType WHERE [Status] = 'True' AND Project_Type_ID = @TypeId",
+                    new SqlParameter("@TypeId", typeId));
+
+                if (dtt.Rows.Count > 0)
+                {
+                    string name = dtt.Rows[0][0].ToString();
+                    Label1.Text = "Editing Data of " + data + " that Project Type is " + name;
+                }
             }
-            else if ( data == "Project_Type"  || data == "Product_Type" || data == "ClientName" || data == "MarketSector")
+            else if (AllowedTables.Contains(data))
             {
-                string query = "Select * From " + data + " Where [Status] = 'True' order by id desc";
-                
-                dt = Core.DatabaseQuery(conn, query);
+                // Using validated table name from whitelist
+                string query = $"SELECT * FROM [{data}] WHERE [Status] = 'True' ORDER BY ID DESC";
+                dt = _core.DatabaseQuery(_conn, query);
                 Label1.Text = "Editing Data of " + data;
             }
             else
             {
-                Response.Redirect("/");
+                Response.Redirect("/", false);
+                return;
             }
 
-            dtshow = new DataTable();
+            CurrentDataTable = dt;
+
+            // Create display table without sensitive columns
+            DataTable dtshow = new DataTable();
             dtshow.Merge(dt);
-            for (int i = 0; i < dtshow.Columns.Count; i++)
+
+            string[] columnsToRemove = { "id", "bu", "typeid", "bu_id", "status", "cost_type_id", "project_type_id" };
+
+            for (int i = dtshow.Columns.Count - 1; i >= 0; i--)
             {
-                if (dtshow.Columns[i].ColumnName.ToLower() == "id")
+                string colName = dtshow.Columns[i].ColumnName.ToLower();
+                if (Array.Exists(columnsToRemove, c => c == colName) ||
+                    (colName == "bu" && data.ToLower() != "bu"))
                 {
-                    dtshow.Columns.Remove(dtshow.Columns[i].ColumnName);
-                    i--;
-                }
-                else if (dtshow.Columns[i].ColumnName.ToLower() == "bu" && data.ToLower() != "bu")
-                {
-                    dtshow.Columns.Remove(dtshow.Columns[i].ColumnName);
-                    i--;
-                }
-                else if (dtshow.Columns[i].ColumnName.ToLower() == "typeid")
-                {
-                    dtshow.Columns.Remove(dtshow.Columns[i].ColumnName);
-                    i--;
-                }
-                else if (dtshow.Columns[i].ColumnName.ToLower() == "bu_id")
-                {
-                    dtshow.Columns.Remove(dtshow.Columns[i].ColumnName);
-                    i--;
-                }
-                else if (dtshow.Columns[i].ColumnName.ToLower() == "status")
-                {
-                    dtshow.Columns.Remove(dtshow.Columns[i].ColumnName);
-                    i--;
-                }
-                else if (dtshow.Columns[i].ColumnName.ToLower() == "cost_type_id")
-                {
-                    dtshow.Columns.Remove(dtshow.Columns[i].ColumnName);
-                    i--;
-                }
-                else if (dtshow.Columns[i].ColumnName.ToLower() == "project_type_id")
-                {
-                    dtshow.Columns.Remove(dtshow.Columns[i].ColumnName);
-                    i--;
+                    dtshow.Columns.RemoveAt(i);
                 }
             }
 
+            DisplayDataTable = dtshow;
             GridView1.DataSource = dtshow;
             GridView1.DataBind();
         }
@@ -112,7 +151,7 @@ namespace Project.Admin
         protected void GridView1_RowEditing(object sender, GridViewEditEventArgs e)
         {
             GridView1.EditIndex = e.NewEditIndex;
-            GridView1.DataSource = dtshow;
+            GridView1.DataSource = DisplayDataTable;
             GridView1.DataBind();
         }
 
@@ -120,135 +159,172 @@ namespace Project.Admin
         {
             e.Cancel = true;
             GridView1.EditIndex = -1;
-            GridView1.DataSource = dtshow;
+            GridView1.DataSource = DisplayDataTable;
             GridView1.DataBind();
         }
 
         protected void GridView1_RowUpdating(object sender, GridViewUpdateEventArgs e)
         {
-            Email = Session["Email"].ToString();
-            GridViewRow row = GridView1.Rows[e.RowIndex];
-            string cmd = "UPDATE " + data + " SET ";
-            string DataChanged = "ID-" + dt.Rows[e.RowIndex]["ID"].ToString() + "{";
-            for (int i = 0; i < dtshow.Columns.Count; i++)
-            {
-                string columnname = dtshow.Columns[i].ColumnName;
-                if(dtshow.Rows[e.RowIndex][columnname].ToString() != ((TextBox)(row.Cells[2 + i].Controls[0])).Text)
-                {
-
-                    DataChanged += columnname + "["+ dtshow.Rows[e.RowIndex][columnname].ToString() + ","+ ((TextBox)(row.Cells[2 + i].Controls[0])).Text + "];";
-                }
-                cmd += columnname + " = '" + ((TextBox)(row.Cells[2 + i].Controls[0])).Text + "'";
-                if (i != dtshow.Columns.Count - 1)
-                {
-                    cmd += ", ";
-                }
-            }
-            cmd += " WHERE ID = " + Convert.ToInt64(dt.Rows[e.RowIndex]["ID"].ToString());
             try
             {
-                Core.DatabaseInsert(conn, cmd);
-                DataChanged += "}";
-                Core.Logs(conn, Request.QueryString["data"], "Update", DataChanged, Session["Email"].ToString());
+                string data = CurrentData;
+                DataTable dt = CurrentDataTable;
+                DataTable dtshow = DisplayDataTable;
 
+                if (!AllowedTables.Contains(data) || e.RowIndex >= dt.Rows.Count)
+                {
+                    return;
+                }
+
+                GridViewRow row = GridView1.Rows[e.RowIndex];
+                long recordId = Convert.ToInt64(dt.Rows[e.RowIndex]["ID"]);
+
+                // Build parameterized update query
+                var parameters = new List<SqlParameter>();
+                var setClauses = new List<string>();
+                string dataChanged = $"ID-{recordId}{{";
+
+                for (int i = 0; i < dtshow.Columns.Count; i++)
+                {
+                    string columnName = dtshow.Columns[i].ColumnName;
+                    string newValue = ((TextBox)(row.Cells[2 + i].Controls[0])).Text;
+                    string oldValue = dtshow.Rows[e.RowIndex][columnName].ToString();
+
+                    if (oldValue != newValue)
+                    {
+                        dataChanged += $"{columnName}[{oldValue},{newValue}];";
+                    }
+
+                    string paramName = $"@p{i}";
+                    setClauses.Add($"[{columnName}] = {paramName}");
+                    parameters.Add(new SqlParameter(paramName, newValue));
+                }
+
+                parameters.Add(new SqlParameter("@RecordId", recordId));
+                string cmd = $"UPDATE [{data}] SET {string.Join(", ", setClauses)} WHERE ID = @RecordId";
+
+                _core.DatabaseInsertWithParams(_conn, cmd, parameters.ToArray());
+                dataChanged += "}";
+                _core.Logs(_conn, data, "Update", dataChanged, CurrentEmail);
+
+                GridView1.EditIndex = -1;
+                ReadData();
             }
             catch (Exception ex)
             {
-                throw ex;
+                System.Diagnostics.Debug.WriteLine($"Error in GridView1_RowUpdating: {ex.Message}");
+                throw;
             }
-            GridView1.EditIndex = -1;
-            readData();
         }
 
         protected void GridView1_RowDeleting(object sender, GridViewDeleteEventArgs e)
         {
-            string logde = "";
-            for (int i = 0; i < dt.Columns.Count; i++)
+            try
             {
-                logde += dt.Rows[e.RowIndex][i].ToString() + ";";
+                string data = CurrentData;
+                DataTable dt = CurrentDataTable;
+
+                if (!AllowedTables.Contains(data) || e.RowIndex >= dt.Rows.Count)
+                {
+                    return;
+                }
+
+                long recordId = Convert.ToInt64(dt.Rows[e.RowIndex]["ID"]);
+
+                _core.DatabaseInsertWithParams(_conn,
+                    $"UPDATE [{data}] SET [Status] = 'False' WHERE ID = @RecordId",
+                    new SqlParameter("@RecordId", recordId));
+
+                _core.Logs(_conn, data, "Update", $"ID-{recordId}{{Status[True,False];}}", CurrentEmail);
+                ReadData();
             }
-            Core.DatabaseInsert(conn, "UPDATE " + data + " SET [Status] = 'False' WHERE ID = " + Convert.ToInt64(dt.Rows[e.RowIndex]["ID"].ToString()));
-            Core.Logs(conn, Request.QueryString["data"], "Update", "ID-"+ Convert.ToInt64(dt.Rows[e.RowIndex]["ID"].ToString()) + "{Status[True,False];}", Session["Email"].ToString());
-            readData();
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error in GridView1_RowDeleting: {ex.Message}");
+            }
         }
 
         protected void Button1_Click(object sender, EventArgs e)
         {
-            Email = Session["Email"].ToString();
-            DataTable dtupdate = dt;
             try
             {
-                dtupdate.Columns.Remove("ID");
-                dtupdate.Columns.Remove("Status");
-            }
-            catch { }
-            string cmd = "INSERT INTO  " + data + " (";
-            for (int i = 0; i < dtupdate.Columns.Count; i++)
-            {
-                cmd += "[" + dtupdate.Columns[i].ColumnName + "]";
-                if (i != dtupdate.Columns.Count - 1)
+                string data = CurrentData;
+
+                if (!AllowedTables.Contains(data))
                 {
-                    cmd += ", ";
+                    return;
                 }
-            }
-            cmd += ") VALUES (";
-            for (int i = 0; i < dtupdate.Columns.Count; i++)
-            {
-                if (dtupdate.Columns[i].ColumnName == "BU" && data.ToLower() != "bu")
+
+                var parameters = new List<SqlParameter>();
+                var columnNames = new List<string>();
+                var paramPlaceholders = new List<string>();
+
+                // Handle Project_SubType insert
+                if (data == "Project_SubType")
                 {
-                    cmd += BU;
-                }
-                else if (dtupdate.Columns[i].ColumnName == "Project_Type_ID")
-                {
-                    string ID = Request.QueryString["TypeID"];
-                    cmd += ID;
-                }
-                else if (dtupdate.Columns[i].ColumnName == "Cost_Type_ID")
-                {
-                    string ID = Request.QueryString["Cost_Type_ID"];
-                    cmd += ID;
-                }
-                else if (dtupdate.Columns[i].ColumnName == "BU_ID")
-                {
-                    DataTable dtBu = Core.DatabaseQuery(conn, "SELECT  * FROM [Payment].[dbo].[User] Where Status = 1 AND [User] = '" + Email + "'");
-                    string ID = dtBu.Rows[0]["BU_ID"].ToString();
-                    cmd += ID;
+                    if (!int.TryParse(Request.QueryString["TypeID"], out int typeId))
+                    {
+                        return;
+                    }
+
+                    columnNames.Add("[SubType]");
+                    paramPlaceholders.Add("@SubType");
+                    parameters.Add(new SqlParameter("@SubType", ""));
+
+                    columnNames.Add("[Project_Type_ID]");
+                    paramPlaceholders.Add("@TypeId");
+                    parameters.Add(new SqlParameter("@TypeId", typeId));
                 }
                 else
                 {
-                    cmd += "''";
+                    // For other tables, insert with default empty value for main column
+                    string mainColumn = GetMainColumnName(data);
+                    if (!string.IsNullOrEmpty(mainColumn))
+                    {
+                        columnNames.Add($"[{mainColumn}]");
+                        paramPlaceholders.Add("@MainValue");
+                        parameters.Add(new SqlParameter("@MainValue", ""));
+                    }
                 }
-                if (i != dtupdate.Columns.Count - 1)
+
+                if (columnNames.Count > 0)
                 {
-                    cmd += ", ";
+                    string cmd = $"INSERT INTO [{data}] ({string.Join(", ", columnNames)}) VALUES ({string.Join(", ", paramPlaceholders)})";
+                    _core.DatabaseInsertWithParams(_conn, cmd, parameters.ToArray());
+                    _core.Logs(_conn, data, "Insert", "", CurrentEmail);
                 }
-            }
-            cmd += ")";
-            
 
-            try
-            {
-                Core.DatabaseInsert(conn, cmd);
-                Core.Logs(conn, Request.QueryString["data"], "Insert", "", Session["Email"].ToString());
-
+                ReadData();
             }
             catch (Exception ex)
             {
-                throw ex;
+                System.Diagnostics.Debug.WriteLine($"Error in Button1_Click: {ex.Message}");
+                throw;
             }
-            readData();
+        }
+
+        private string GetMainColumnName(string tableName)
+        {
+            switch (tableName)
+            {
+                case "Project_Type": return "Project_Type";
+                case "Product_Type": return "Product_Type";
+                case "ClientName": return "ClientName";
+                case "MarketSector": return "SectorName";
+                default: return null;
+            }
         }
 
         protected void GridView1_PageIndexChanging(object sender, GridViewPageEventArgs e)
         {
             GridView1.PageIndex = e.NewPageIndex;
-            GridView1.DataSource = dtshow;
+            GridView1.DataSource = DisplayDataTable;
             GridView1.DataBind();
         }
 
         protected void Button2_Click(object sender, EventArgs e)
         {
-            Response.Redirect("/Admin");
+            Response.Redirect("/Admin", false);
         }
     }
 }
