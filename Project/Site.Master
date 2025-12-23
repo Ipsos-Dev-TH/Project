@@ -32,28 +32,39 @@
             <div class="ipsos-navbar-container">
                 <a class="ipsos-navbar-brand" runat="server" href="~/Home">
                     <i class="fas fa-project-diagram"></i>
-                    Project Management
+                    <span class="brand-text">Project Management</span>
                 </a>
 
-                <ul class="ipsos-navbar-menu">
+                <button type="button" class="navbar-toggle" onclick="toggleMenu()">
+                    <i class="fas fa-bars"></i>
+                </button>
+
+                <ul class="ipsos-navbar-menu" id="navbarMenu">
                     <li class="ipsos-navbar-item">
                         <a class="ipsos-navbar-link" runat="server" href="~/Home">
-                            <i class="fas fa-home"></i> Home
+                            <i class="fas fa-home"></i> <span>Home</span>
                         </a>
                     </li>
                     <li class="ipsos-navbar-item">
                         <a class="ipsos-navbar-link" runat="server" href="~/Admin">
-                            <i class="fas fa-cog"></i> Configuration
+                            <i class="fas fa-cog"></i> <span>Config</span>
                         </a>
                     </li>
                     <li class="ipsos-navbar-item">
                         <asp:LinkButton ID="LogoutButton" runat="server" CssClass="ipsos-navbar-logout" OnClick="ImageButton1_Click">
-                            <i class="fas fa-sign-out-alt"></i> Logout
+                            <i class="fas fa-sign-out-alt"></i> <span>Logout</span>
                         </asp:LinkButton>
                     </li>
                 </ul>
             </div>
         </nav>
+
+        <script type="text/javascript">
+            function toggleMenu() {
+                var menu = document.getElementById('navbarMenu');
+                menu.classList.toggle('show');
+            }
+        </script>
 
         <!-- Main Content -->
         <div class="ipsos-page-wrapper">

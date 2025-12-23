@@ -711,25 +711,94 @@ h6 { font-size: 1.1rem; }
 }
 
 /* --------------------------------------------------------------------------
+   Navbar Toggle Button
+   -------------------------------------------------------------------------- */
+.navbar-toggle {
+    display: none;
+    background: rgba(255, 255, 255, 0.1);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    color: var(--ipsos-white);
+    padding: 0.5rem 0.75rem;
+    border-radius: var(--ipsos-radius-md);
+    font-size: 1.25rem;
+    cursor: pointer;
+    transition: var(--ipsos-transition);
+}
+
+.navbar-toggle:hover {
+    background: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.5);
+}
+
+/* --------------------------------------------------------------------------
    Responsive Design
    -------------------------------------------------------------------------- */
-@media screen and (max-width: 992px) {
+@media screen and (max-width: 768px) {
+    .navbar-toggle {
+        display: block;
+    }
+
+    .ipsos-navbar-brand .brand-text {
+        display: none;
+    }
+
+    .ipsos-navbar-menu {
+        display: none;
+        flex-direction: column;
+        width: 100%;
+        padding: 1rem 0;
+        position: absolute;
+        top: 60px;
+        left: 0;
+        right: 0;
+        background: var(--ipsos-gradient);
+        box-shadow: var(--ipsos-shadow-md);
+    }
+
+    .ipsos-navbar-menu.show {
+        display: flex;
+    }
+
     .ipsos-navbar-container {
         flex-wrap: wrap;
     }
 
-    .ipsos-navbar-menu {
-        flex-direction: column;
-        width: 100%;
-        padding: 1rem 0;
-    }
-
     .ipsos-navbar-item {
         width: 100%;
+        text-align: center;
     }
 
     .ipsos-navbar-link {
         width: 100%;
+        padding: 1rem;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .ipsos-navbar-logout {
+        width: 100%;
+        margin: 0.5rem 1rem;
+        text-align: center;
+    }
+
+    .ipsos-navbar-link span,
+    .ipsos-navbar-logout span {
+        display: inline;
+    }
+}
+
+@media screen and (min-width: 769px) and (max-width: 992px) {
+    .ipsos-navbar-brand {
+        font-size: 1.2rem;
+    }
+
+    .ipsos-navbar-link {
+        padding: 0.5rem 0.75rem;
+        font-size: 0.9rem;
+    }
+
+    .ipsos-navbar-logout {
+        padding: 0.4rem 0.75rem;
+        font-size: 0.9rem;
     }
 }
 
