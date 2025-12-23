@@ -51,7 +51,7 @@
 
 body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-    font-size: 14px;
+    font-size: 16px;
     line-height: 1.6;
     color: var(--ipsos-dark);
     background-color: var(--ipsos-white-smoke);
@@ -239,6 +239,8 @@ h6 { font-size: 1rem; }
     background: var(--ipsos-gradient);
     padding: 1rem 1.5rem;
     border-bottom: 3px solid var(--ipsos-teal);
+    font-size: 1.1rem;
+    color: var(--ipsos-white);
 }
 
 .ipsos-card-header h2,
@@ -265,8 +267,8 @@ h6 { font-size: 1rem; }
    -------------------------------------------------------------------------- */
 .ipsos-btn {
     display: inline-block;
-    padding: 0.6rem 1.25rem;
-    font-size: 0.9rem;
+    padding: 0.65rem 1.25rem;
+    font-size: 0.95rem;
     font-weight: 500;
     text-align: center;
     text-decoration: none;
@@ -376,8 +378,9 @@ h6 { font-size: 1rem; }
 
 .ipsos-form-label {
     display: block;
-    margin-bottom: 0.4rem;
+    margin-bottom: 0.5rem;
     font-weight: 500;
+    font-size: 0.95rem;
     color: var(--ipsos-dark);
 }
 
@@ -388,8 +391,8 @@ h6 { font-size: 1rem; }
 
 .ipsos-form-control {
     width: 100%;
-    padding: 0.6rem 1rem;
-    font-size: 0.9rem;
+    padding: 0.65rem 1rem;
+    font-size: 1rem;
     border: 2px solid var(--ipsos-light-gray);
     border-radius: var(--ipsos-radius-md);
     background: var(--ipsos-white);
@@ -448,7 +451,7 @@ h6 { font-size: 1rem; }
 .ipsos-table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 0.9rem;
+    font-size: 0.95rem;
 }
 
 .ipsos-table thead {
@@ -785,11 +788,11 @@ input[type="date"],
 input[type="number"],
 select,
 textarea {
-    padding: 0.6rem 1rem !important;
+    padding: 0.65rem 1rem !important;
     border: 2px solid var(--ipsos-light-gray) !important;
     border-radius: var(--ipsos-radius-md) !important;
     transition: var(--ipsos-transition) !important;
-    font-size: 0.9rem !important;
+    font-size: 1rem !important;
     max-width: 100% !important;
 }
 
@@ -811,8 +814,9 @@ button {
     background: var(--ipsos-gradient) !important;
     color: var(--ipsos-white) !important;
     border: none !important;
-    padding: 0.6rem 1.5rem !important;
+    padding: 0.65rem 1.5rem !important;
     border-radius: var(--ipsos-radius-md) !important;
+    font-size: 0.95rem !important;
     font-weight: 500 !important;
     cursor: pointer !important;
     transition: var(--ipsos-transition) !important;
@@ -849,19 +853,21 @@ table[id*="GridView"] {
     border-collapse: collapse;
     border-radius: var(--ipsos-radius-lg);
     overflow: hidden;
+    font-size: 0.95rem;
 }
 
 table[id*="GridView"] th {
     background: var(--ipsos-gradient) !important;
     color: var(--ipsos-white) !important;
-    padding: 0.8rem 1rem !important;
+    padding: 0.85rem 1rem !important;
     font-weight: 600 !important;
     font-family: 'Barlow', sans-serif !important;
+    font-size: 0.95rem !important;
     text-align: left;
 }
 
 table[id*="GridView"] td {
-    padding: 0.6rem 1rem !important;
+    padding: 0.7rem 1rem !important;
     border-bottom: 1px solid var(--ipsos-light-gray) !important;
 }
 
