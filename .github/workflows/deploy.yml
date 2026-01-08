@@ -27,6 +27,9 @@ jobs:
     steps:
       - name: Checkout code
         run: |
+          # Enable TLS 1.2 for older PowerShell
+          [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+
           # Clean workspace
           if (Test-Path "${{ github.workspace }}\*") {
             Remove-Item -Path "${{ github.workspace }}\*" -Recurse -Force -ErrorAction SilentlyContinue
@@ -44,7 +47,7 @@ jobs:
           $extractPath = "${{ github.workspace }}\temp_extract"
 
           Write-Host "Downloading repository from: $zipUrl"
-          Invoke-WebRequest -Uri $zipUrl -Headers $headers -OutFile $zipPath
+          Invoke-WebRequest -Uri $zipUrl -Headers $headers -OutFile $zipPath -UseBasicParsing
 
           Write-Host "Extracting repository..."
           Add-Type -AssemblyName System.IO.Compression.FileSystem
