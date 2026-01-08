@@ -1,0 +1,232 @@
+# Project Management System - Build and Deploy Workflow
+# Uses self-hosted runner for direct IIS deployment
+
+name: Build and Deploy Project
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+env:
+  SOLUTION_PATH: Project.sln
+  PROJECT_PATH: Project/Project.csproj
+  BUILD_CONFIGURATION: Release
+
+jobs:
+  build:
+    name: Build Application
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Setup NuGet
+        uses: NuGet/setup-nuget@v2
+
+      - name: Restore NuGet packages
+        run: nuget restore ${{ env.SOLUTION_PATH }}
+
+      - name: Build solution
+        run: |
+          msbuild ${{ env.SOLUTION_PATH }} /p:Configuration=${{ env.BUILD_CONFIGURATION }} /p:Platform="Any CPU"
+
+      - name: Publish Web Application
+        run: |
+          msbuild Project/Project.csproj `
+            /p:Configuration=${{ env.BUILD_CONFIGURATION }} `
+            /p:DeployOnBuild=true `
+            /p:PublishProfile=FolderProfile `
+            /p:publishUrl="${{ github.workspace }}\publish" `
+            /p:WebPublishMethod=FileSystem `
+            /p:DeleteExistingFiles=true
+        continue-on-error: true
+
+      - name: Copy build output (fallback)
+        run: |
+          $source = "${{ github.workspace }}\Project"
+          $dest = "${{ github.workspace }}\publish"
+
+          if (-not (Test-Path $dest)) {
+            New-Item -ItemType Directory -Path $dest -Force
+          }
+
+          # Copy all web files directly to publish root
+          $webExtensions = @("*.aspx", "*.aspx.cs", "*.ascx", "*.ascx.cs", "*.master", "*.master.cs", "*.asax", "*.config", "*.css", "*.js", "*.html", "*.htm")
+
+          foreach ($ext in $webExtensions) {
+            Get-ChildItem -Path $source -Filter $ext -Recurse -ErrorAction SilentlyContinue | ForEach-Object {
+              $relPath = $_.FullName.Substring($source.Length + 1)
+              $targetPath = Join-Path $dest $relPath
+              $targetDir = Split-Path $targetPath -Parent
+              if (-not (Test-Path $targetDir)) {
+                New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
+              }
+              Copy-Item $_.FullName -Destination $targetPath -Force
+            }
+          }
+
+          # Copy bin folder
+          if (Test-Path "$source\bin") {
+            Copy-Item -Path "$source\bin" -Destination "$dest\bin" -Recurse -Force
+          }
+
+          # Copy asset folders
+          @("Content", "Scripts", "App_Data", "Images", "Upload", "fonts") | ForEach-Object {
+            if (Test-Path "$source\$_") {
+              Copy-Item -Path "$source\$_" -Destination "$dest\$_" -Recurse -Force
+            }
+          }
+
+          Write-Host "Build output copied to: $dest"
+          $count = (Get-ChildItem $dest -Recurse -File).Count
+          Write-Host "Total files: $count"
+        shell: powershell
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: project-build
+          path: ${{ github.workspace }}\publish
+          retention-days: 7
+          if-no-files-found: error
+
+  deploy:
+    name: Deploy to IIS
+    needs: build
+    runs-on: self-hosted
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    permissions:
+      actions: read
+      contents: read
+
+    steps:
+      - name: Download build artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Enable TLS 1.2 for older PowerShell
+          [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+
+          # Clean up and create publish directory
+          if (Test-Path "./publish") {
+            Remove-Item -Path "./publish" -Recurse -Force
+          }
+          New-Item -ItemType Directory -Path "./publish" -Force | Out-Null
+
+          # Get artifact download URL using REST API
+          $headers = @{
+            "Authorization" = "Bearer $env:GH_TOKEN"
+            "Accept" = "application/vnd.github+json"
+            "X-GitHub-Api-Version" = "2022-11-28"
+          }
+
+          $artifactsUrl = "https://api.github.com/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts"
+          Write-Host "Fetching artifacts from: $artifactsUrl"
+
+          $response = Invoke-RestMethod -Uri $artifactsUrl -Headers $headers -Method Get
+          $artifact = $response.artifacts | Where-Object { $_.name -eq "project-build" } | Select-Object -First 1
+
+          if (-not $artifact) {
+            Write-Error "Artifact 'project-build' not found"
+            exit 1
+          }
+
+          Write-Host "Found artifact: $($artifact.name), Size: $($artifact.size_in_bytes) bytes"
+
+          # Download artifact zip
+          $downloadUrl = $artifact.archive_download_url
+          $zipPath = "./artifact.zip"
+
+          Write-Host "Downloading artifact..."
+          Invoke-WebRequest -Uri $downloadUrl -Headers $headers -OutFile $zipPath
+
+          # Extract using .NET (compatible with PowerShell 5.1)
+          Write-Host "Extracting artifact..."
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          [System.IO.Compression.ZipFile]::ExtractToDirectory($zipPath, "./publish")
+
+          Remove-Item $zipPath -Force
+
+          $count = (Get-ChildItem ./publish -Recurse -File -ErrorAction SilentlyContinue).Count
+          Write-Host "Artifact downloaded and extracted. Total files: $count"
+        shell: powershell
+
+      - name: Deploy to IIS
+        run: |
+          $deployPath = "${{ vars.IIS_DEPLOY_PATH }}"
+          if (-not $deployPath) {
+            Write-Error "IIS_DEPLOY_PATH variable not set"
+            exit 1
+          }
+
+          Write-Host "Deploy path: $deployPath"
+
+          # Create directory if not exists
+          if (-not (Test-Path $deployPath)) {
+            New-Item -ItemType Directory -Path $deployPath -Force
+          }
+
+          # Config files to preserve (don't overwrite on server)
+          $preserveFiles = @("Web.config")
+
+          # Get source path
+          $sourcePath = Join-Path (Get-Location) "publish"
+          Write-Host "Source path: $sourcePath"
+
+          # Copy files using robocopy
+          # /E = Copy subdirectories including empty ones
+          # /IS = Include same files (overwrite even if same)
+          # /IT = Include tweaked files
+          # /XO = Exclude older files (don't downgrade)
+          # Note: NOT using /PURGE or /MIR to keep existing bin files
+          $excludeArgs = $preserveFiles | ForEach-Object { "/XF", $_ }
+
+          Write-Host "Copying files (preserving existing bin files)..."
+          robocopy $sourcePath $deployPath /E /IS /IT /NFL /NDL /NJH /NJS /NC /NS @excludeArgs
+
+          # robocopy returns non-zero for success, so check for actual errors (>=8)
+          if ($LASTEXITCODE -ge 8) {
+            Write-Error "Robocopy failed with exit code: $LASTEXITCODE"
+            exit 1
+          }
+
+          # Copy preserved files only if they don't exist
+          foreach ($file in $preserveFiles) {
+            $srcFile = Join-Path $sourcePath $file
+            $destFile = Join-Path $deployPath $file
+            if ((Test-Path $srcFile) -and (-not (Test-Path $destFile))) {
+              Copy-Item $srcFile -Destination $destFile -Force
+              Write-Host "Created: $file"
+            } elseif (Test-Path $destFile) {
+              Write-Host "Preserved: $file"
+            }
+          }
+
+          Write-Host "Deployment completed to: $deployPath"
+
+          # Reset exit code (robocopy returns 1 for success)
+          $global:LASTEXITCODE = 0
+        shell: powershell
+
+      - name: Deployment summary
+        run: |
+          Write-Host "========================================"
+          Write-Host "Deployment completed successfully!"
+          Write-Host "Commit: ${{ github.sha }}"
+          Write-Host "Branch: ${{ github.ref_name }}"
+          Write-Host "Deployed by: ${{ github.actor }}"
+          Write-Host "========================================"
+        shell: powershell
