@@ -7,42 +7,24 @@ namespace Project
 {
         public partial class SiteMaster : MasterPage
         {
+            // Login and role checks are enforced centrally in Global.Application_PostAcquireRequestState.
             protected void Page_Load(object sender, EventArgs e)
             {
-            // Get default URL from configuration if needed
-            string mainpath = ConfigurationManager.AppSettings["DefaultURL"] ?? "";
-            if (HttpContext.Current.Request.Url.AbsolutePath.ToString().Contains("Default"))
-                { }
-                else
+                if (AdminMenuItem != null)
                 {
-                    try
-                    {
-                        string LoginStatus = Session["LoginStatus"].ToString();
-                        if (LoginStatus == "true")
-                        {
-
-                        }
-                        else
-                        {
-                            Response.Redirect("/Default.aspx");
-                        }
-                    }
-                    catch
-                    {
-                        Session["LoginStatus"] = "false";
-                        Response.Redirect("/Default.aspx");
-                    }
+                    AdminMenuItem.Visible = AppAuth.IsAdmin;
+                }
+                if (CurrentUserLabel != null)
+                {
+                    CurrentUserLabel.Text = HttpUtility.HtmlEncode(AppAuth.CurrentEmail + " (" + AppAuth.CurrentRole + ")");
                 }
             }
 
-        
-
-        protected void ImageButton1_Click(object sender, EventArgs e)
+            protected void ImageButton1_Click(object sender, EventArgs e)
             {
-                // Clear session and redirect to login page
-                Session["LoginStatus"] = "false";
-                Session["Email"] = null;
-                Response.Redirect("/Default.aspx");
+                AppAuth.SignOut();
+                Response.Redirect("/Default.aspx", false);
+                Context.ApplicationInstance.CompleteRequest();
             }
         }
     

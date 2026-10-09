@@ -265,23 +265,30 @@ namespace Project
             string query = "";
             if (TextBox1.Text != string.Empty && DropDownList1.SelectedIndex > 0 && DropDownList2.SelectedIndex > 0 && DropDownList17.SelectedIndex > 0 && DropDownList18.SelectedIndex > 0 && DropDownList19.SelectedIndex > 0 && TextBox22.Text.Length > 6)
             {
-                if (Command == "Edit")
+                string formattedSym = ChangeSymNumber(TextBox1.Text.Trim());
+                if (formattedSym == "")
                 {
-                    query = _sql.Update_Project_byID.Replace("@IDSelected", ID);
+                    ClientScript.RegisterStartupScript(this.GetType(), "myalert", "alert('รูปแบบ Symphony Number ไม่ถูกต้อง (เช่น 26-076446-01-01)');", true);
+                    return;
                 }
-                else
-                {
-                    DataTable dtcheck = _core.DatabaseQuery(_conn, _sql.Select_Project_CheckExist.Replace("@Symphony_Number", TextBox1.Text));
-                    if (dtcheck.Rows.Count > 0)
-                    {
-                        ClientScript.RegisterStartupScript(this.GetType(), "myalert", "alert('เลขโปรเจกต์ซ้ำหรือไม่ถูกต้อง');", true);
-                    }
-                    else
-                    {
-                        query = _sql.Insert_Project_new;
+                TextBox1.Text = formattedSym;
 
-                    }
+                int editId = 0;
+                if (Command == "Edit" && !int.TryParse(ID, out editId))
+                {
+                    return;
                 }
+
+                DataTable dtcheck = _core.DatabaseQueryWithParams(_conn, _sql.Select_Project_CheckExist,
+                    new SqlParameter("@SymphonyKey", NormalizeSymNumber(TextBox1.Text)),
+                    new SqlParameter("@ExcludeId", editId));
+                if (dtcheck.Rows.Count > 0)
+                {
+                    ClientScript.RegisterStartupScript(this.GetType(), "myalert", "alert('Symphony Number นี้มีอยู่ในระบบแล้ว (ID " + dtcheck.Rows[0]["ID"] + ")');", true);
+                    return;
+                }
+
+                query = Command == "Edit" ? _sql.Update_Project_byID : _sql.Insert_Project_new;
                 try
                 {
                     using (SqlConnection con = new SqlConnection(_conn))
@@ -303,13 +310,13 @@ namespace Project
                             cmd.Parameters.AddWithValue("@Used_iField", CheckBox1.Checked);
                             cmd.Parameters.AddWithValue("@Project_Owner", TextBox22.Text);
 
-                            cmd.Parameters.AddWithValue("@Status", "NEW");
                             if (Command == "Edit")
                             {
-
+                                cmd.Parameters.AddWithValue("@IDSelected", editId);
                             }
                             else
                             {
+                                cmd.Parameters.AddWithValue("@Status", "NEW");
                                 cmd.Parameters.AddWithValue("@Creator", Session["Email"]?.ToString() ?? "");
                                 cmd.Parameters.AddWithValue("@Created_DateTime", DateTime.Now);
                             }
@@ -738,15 +745,10 @@ namespace Project
 
         private DataTable ReadExcelFile(string filePath)
         {
-                using (var stream = FileUpload1.FileContent)
-                {
-                    DataTable dt = ReadExcelFile(stream);
-                    InsertDataToDatabase(dt); // your method
-                    return dt;
-                }
-            
-           
-
+            using (var stream = File.OpenRead(filePath))
+            {
+                return ReadExcelFile(stream);
+            }
         }
 
         public DataTable ReadExcelFile(Stream stream)
@@ -769,9 +771,7 @@ namespace Project
                         }
                     });
 
-                    DataTable dt = result.Tables[0];
-                    InsertDataToDatabase(dt);
-                    return dt;
+                    return result.Tables[0];
                 }
            
         }
@@ -918,8 +918,9 @@ namespace Project
         private void ProcessDataRow(DataRow row, SqlConnection conn, SqlTransaction transaction, string userEmail)
         {
             // Extract data from row
-            string symphonyNumber = row["Job ID"]?.ToString() ?? "";
+            string symphonyNumber = row["Job ID"]?.ToString()?.Trim() ?? "";
             if (string.IsNullOrWhiteSpace(symphonyNumber)) return;
+            string symphonyKey = NormalizeSymNumber(symphonyNumber);
 
             string projectName = row["Record Detail"]?.ToString()?.Replace(symphonyNumber + " - ", "") ?? "";
             string status = row["Status"]?.ToString() ?? "";
@@ -943,7 +944,7 @@ namespace Project
             DateTime? endDate = ParseDate(endDateStr);
 
             // Check if project exists
-            if (_existingProjectsCache.TryGetValue(symphonyNumber, out var existingProject))
+            if (_existingProjectsCache.TryGetValue(symphonyKey, out var existingProject))
             {
                 // Project exists - check if we should update
                 if (existingProject.EndDate.HasValue && endDate.HasValue)
@@ -958,7 +959,7 @@ namespace Project
                 }
 
                 // Update existing project
-                UpdateProject(conn, transaction, symphonyNumber, startDate, endDate, status, projectOwner, clientId, userEmail);
+                UpdateProject(conn, transaction, symphonyKey, startDate, endDate, status, projectOwner, clientId, userEmail);
                 _updatedCount++;
             }
             else
@@ -969,8 +970,13 @@ namespace Project
                 _insertedCount++;
 
                 // Add to cache to prevent duplicate inserts
-                _existingProjectsCache[symphonyNumber] = (0, endDate);
+                _existingProjectsCache[symphonyKey] = (0, endDate);
             }
+        }
+
+        private static string NormalizeSymNumber(string symphonyNumber)
+        {
+            return (symphonyNumber ?? "").Replace("-", "").Trim();
         }
 
         private string ParseProjectOwner(DataRow row)

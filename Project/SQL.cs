@@ -10,7 +10,8 @@ namespace Project
     public class SQL
     {
         // Query to check if a project exists by Symphony Number
-        public string Select_Project_CheckExist = "SELECT * FROM [Project].[dbo].[Project] WHERE Symphony_Number = @Symphony_Number";
+        public string Select_Project_CheckExist = @"SELECT ID FROM [Project].[dbo].[Project]
+            WHERE REPLACE(Symphony_Number, '-', '') = @SymphonyKey AND ID <> @ExcludeId";
 
         // Query to search projects by column - Note: Column name should be validated against whitelist before use
         public string Select_Project_byColumn = @"SELECT [Project].*,
@@ -54,7 +55,6 @@ namespace Project
             [Product_Type_ID] = @Product_Type_ID,
             [Project_StartDate] = @Project_StartDate,
             [Project_EndDate] = @Project_EndDate,
-            [Status] = @Status,
             [ClientDBID] = @ClientDBID,
             ClientName_ID = @ClientName_ID,
             MarketSector_ID = @MarketSector_ID,

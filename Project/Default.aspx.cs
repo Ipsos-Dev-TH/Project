@@ -15,26 +15,10 @@ namespace Project
 
         protected void Page_Load(object sender, EventArgs e)
         {
-            string email = _core.GetURIparameter("access", HttpContext.Current.Request.Url.AbsoluteUri);
-
-            try
+            if (!IsPostBack && AppAuth.IsLoggedIn)
             {
-                if (!string.IsNullOrEmpty(email))
-                {
-                    email = _core.Decrypt(email);
-                    email = email.ToLower();
-
-                    if (IsValidIpsosEmail(email))
-                    {
-                        Session["LoginStatus"] = "true";
-                        Session["Email"] = email;
-                        Response.Redirect("/Home", false);
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"Error in Page_Load: {ex.Message}");
+                Response.Redirect("/Home", false);
+                Context.ApplicationInstance.CompleteRequest();
             }
         }
 
@@ -43,14 +27,15 @@ namespace Project
             try
             {
                 bool isValid = false;
+                string email = TextBox1.Text.Trim();
 
-                if (IsValidEmailInput(TextBox1.Text))
+                if (IsValidEmailInput(email) && !string.IsNullOrEmpty(TextBox2.Text))
                 {
                     try
                     {
                         using (PrincipalContext pc = new PrincipalContext(ContextType.Domain, _ldap))
                         {
-                            isValid = pc.ValidateCredentials(TextBox1.Text, TextBox2.Text);
+                            isValid = pc.ValidateCredentials(email, TextBox2.Text);
                         }
                     }
                     catch (Exception ex)
@@ -59,11 +44,23 @@ namespace Project
                     }
                 }
 
-                if (isValid)
+                if (isValid && AppAuth.SignIn(email))
                 {
-                    Session["LoginStatus"] = "true";
-                    Session["Email"] = TextBox1.Text;
+                    try
+                    {
+                        _core.Logs(ConfigurationManager.ConnectionStrings["ProjectConnectionString"].ConnectionString,
+                            "App_User", "Login", "Login from " + Request.UserHostAddress, email.ToLowerInvariant());
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"Login log failed: {ex.Message}");
+                    }
                     Response.Redirect("/Home", false);
+                    Context.ApplicationInstance.CompleteRequest();
+                }
+                else if (isValid)
+                {
+                    ClientScript.RegisterStartupScript(this.GetType(), "myalert", "alert('บัญชีนี้ถูกปิดการใช้งาน กรุณาติดต่อผู้ดูแลระบบ');", true);
                 }
                 else
                 {
@@ -87,12 +84,6 @@ namespace Project
             return CheckEmailFormat(email) &&
                    Regex.IsMatch(email[0].ToString(), "^[a-zA-Z]$") &&
                    Regex.IsMatch(email[email.Length - 1].ToString(), "^[a-zA-Z]$");
-        }
-
-        private bool IsValidIpsosEmail(string email)
-        {
-            return !string.IsNullOrEmpty(email) &&
-                   email.EndsWith("@ipsos.com", StringComparison.OrdinalIgnoreCase);
         }
 
         public bool CheckEmailFormat(string emailAddress)

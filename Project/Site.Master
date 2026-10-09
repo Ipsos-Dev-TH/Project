@@ -45,10 +45,14 @@
                             <i class="fas fa-home"></i> <span>Home</span>
                         </a>
                     </li>
-                    <li class="ipsos-navbar-item">
+                    <li class="ipsos-navbar-item" id="AdminMenuItem" runat="server">
                         <a class="ipsos-navbar-link" runat="server" href="~/Admin">
-                            <i class="fas fa-cog"></i> <span>Config</span>
+                            <i class="fas fa-cog"></i> <span>Admin</span>
                         </a>
+                    </li>
+                    <li class="ipsos-navbar-item ipsos-navbar-user">
+                        <i class="fas fa-user-circle"></i>
+                        <asp:Label ID="CurrentUserLabel" runat="server" />
                     </li>
                     <li class="ipsos-navbar-item">
                         <asp:LinkButton ID="LogoutButton" runat="server" CssClass="ipsos-navbar-logout" OnClick="ImageButton1_Click">

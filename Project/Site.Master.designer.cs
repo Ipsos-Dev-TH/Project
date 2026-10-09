@@ -21,7 +21,11 @@ namespace Project
         /// Auto-generated field.
         /// To modify move field declaration from designer file to code-behind file.
         /// </remarks>
-        protected global::System.Web.UI.WebControls.ImageButton ImageButton1;
+        protected global::System.Web.UI.HtmlControls.HtmlGenericControl AdminMenuItem;
+
+        protected global::System.Web.UI.WebControls.Label CurrentUserLabel;
+
+        protected global::System.Web.UI.WebControls.LinkButton LogoutButton;
 
         /// <summary>
         /// MainContent control.
