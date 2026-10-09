@@ -35,6 +35,10 @@
                                 <asp:ListItem Value="Project_Name">Project Name</asp:ListItem>
                                 <asp:ListItem Value="Project_Type">Type</asp:ListItem>
                                 <asp:ListItem Value="SubType">Sub Type</asp:ListItem>
+                                <asp:ListItem Value="ClientName">Client</asp:ListItem>
+                                <asp:ListItem Value="SectorName">Market Sector</asp:ListItem>
+                                <asp:ListItem Value="Project_Owner">Project Owner</asp:ListItem>
+                                <asp:ListItem Value="Status">Status</asp:ListItem>
                             </asp:DropDownList>
                         </div>
                     </div>
@@ -49,13 +53,14 @@
                         <div class="ipsos-form-group">
                             <label class="ipsos-form-label">&nbsp;</label>
                             <asp:Button ID="Button6" runat="server" OnClick="Button6_Click" Text="Search" CssClass="ipsos-btn ipsos-btn-primary" />
+                            <asp:Button ID="BtnExportCsv" runat="server" OnClick="BtnExportCsv_Click" Text="Export CSV" CssClass="ipsos-btn ipsos-btn-secondary" />
                         </div>
                     </div>
                 </div>
 
                 <!-- Search Results Grid -->
                 <div class="ipsos-table-container" style="margin-top: 1rem;">
-                    <asp:GridView ID="GridView2" runat="server" AutoGenerateColumns="False" AllowPaging="True"
+                    <asp:GridView ID="GridView2" runat="server" AutoGenerateColumns="False" AllowPaging="True" DataKeyNames="ID"
                         OnPageIndexChanging="GridView2_PageIndexChanging" OnSelectedIndexChanging="GridView2_SelectedIndexChanging"
                         CssClass="ipsos-table">
                         <Columns>
@@ -65,12 +70,16 @@
                             <asp:BoundField DataField="Project_Name" HeaderText="Project Name" />
                             <asp:BoundField DataField="Project_Type" HeaderText="Type" />
                             <asp:BoundField DataField="SubType" HeaderText="SubType" />
-                            <asp:BoundField DataField="Project_StartDate" HeaderText="Start Date" />
-                            <asp:BoundField DataField="Project_EndDate" HeaderText="End Date" />
+                            <asp:TemplateField HeaderText="Start Date">
+                                <ItemTemplate><%#: FormatDate(Eval("Project_StartDate")) %></ItemTemplate>
+                            </asp:TemplateField>
+                            <asp:TemplateField HeaderText="End Date">
+                                <ItemTemplate><%#: FormatDate(Eval("Project_EndDate")) %></ItemTemplate>
+                            </asp:TemplateField>
                             <asp:TemplateField HeaderText="Status">
                                 <ItemTemplate>
-                                    <span class='status-badge status-<%# Eval("Status") != null ? Eval("Status").ToString().ToLower().Replace(" ", "-") : "unknown" %>'>
-                                        <%# Eval("Status") %>
+                                    <span class='status-badge <%#: StatusCssClass(Eval("Status")) %>'>
+                                        <%#: Eval("Status") %>
                                     </span>
                                 </ItemTemplate>
                             </asp:TemplateField>
@@ -90,9 +99,12 @@
                     <asp:Button ID="Button7" runat="server" Text="New" OnClick="Button7_Click" CssClass="ipsos-btn ipsos-btn-success ipsos-btn-sm" />
                     <asp:Button ID="Button8" runat="server" Enabled="False" Text="Edit" OnClick="Button8_Click" CssClass="ipsos-btn ipsos-btn-warning ipsos-btn-sm" />
                     <asp:Button ID="Button10" runat="server" Text="Upload File" OnClick="Button10_Click1" CssClass="ipsos-btn ipsos-btn-info ipsos-btn-sm" />
+                    <asp:Button ID="BtnDelete" runat="server" Text="Delete" Visible="false" OnClick="BtnDelete_Click" CssClass="ipsos-btn ipsos-btn-danger ipsos-btn-sm"
+                        OnClientClick="return confirm('ยืนยันการลบโปรเจกต์นี้? (Delete this project?)');" />
                 </div>
             </div>
             <div class="ipsos-card-body">
+                <asp:Label ID="LblFormMessage" runat="server" EnableViewState="false"></asp:Label>
                 <!-- Row 1: Symphony Number & Project Name -->
                 <div class="ipsos-row">
                     <div class="ipsos-col-6">
@@ -233,12 +245,57 @@
                                     <div class="ipsos-form-group">
                                         <label class="ipsos-form-label">&nbsp;</label>
                                         <asp:Button ID="Button9" runat="server" OnClick="Button9_Click1" Text="Sync Data" CssClass="ipsos-btn ipsos-btn-info" />
+                                        <asp:Button ID="BtnPreview" runat="server" OnClick="BtnPreview_Click" Text="Preview" CssClass="ipsos-btn ipsos-btn-secondary"
+                                            ToolTip="ตรวจสอบไฟล์โดยไม่บันทึกข้อมูล (nothing is saved)" />
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="ipsos-row">
+                                <div class="ipsos-col-12">
+                                    <label class="ipsos-form-label"><i class="fas fa-history"></i> Last 10 uploads</label>
+                                    <div class="ipsos-table-container upload-history">
+                                        <asp:GridView ID="GridViewUploadHistory" runat="server" AutoGenerateColumns="False" CssClass="ipsos-table"
+                                            EmptyDataText="No uploads yet.">
+                                            <Columns>
+                                                <asp:BoundField DataField="Uploaded_Time" HeaderText="Date/Time" />
+                                                <asp:BoundField DataField="File_Name" HeaderText="File" />
+                                                <asp:BoundField DataField="Uploaded_By" HeaderText="By" />
+                                                <asp:BoundField DataField="Run_Type" HeaderText="Type" />
+                                                <asp:BoundField DataField="Total_Rows" HeaderText="Rows" />
+                                                <asp:BoundField DataField="Inserted_Count" HeaderText="Inserted" />
+                                                <asp:BoundField DataField="Updated_Count" HeaderText="Updated" />
+                                                <asp:BoundField DataField="Skipped_Count" HeaderText="Skipped" />
+                                                <asp:BoundField DataField="Error_Count" HeaderText="Errors" />
+                                            </Columns>
+                                        </asp:GridView>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </asp:Panel>
+            </div>
+        </div>
+    </asp:Panel>
+
+    <!-- Project History Panel (View mode) -->
+    <asp:Panel ID="PanelHistory" runat="server" Visible="false">
+        <div class="ipsos-card" style="margin-top: 1.5rem;">
+            <div class="ipsos-card-header">
+                <i class="fas fa-history"></i> Project History
+            </div>
+            <div class="ipsos-card-body">
+                <div class="ipsos-table-container project-history">
+                    <asp:GridView ID="GridViewHistory" runat="server" AutoGenerateColumns="False" CssClass="ipsos-table"
+                        EmptyDataText="No history for this project.">
+                        <Columns>
+                            <asp:BoundField DataField="Action_Time" HeaderText="Date/Time" />
+                            <asp:BoundField DataField="Action_By" HeaderText="By" />
+                            <asp:BoundField DataField="Task" HeaderText="Task" />
+                            <asp:BoundField DataField="Data" HeaderText="Detail" />
+                        </Columns>
+                    </asp:GridView>
+                </div>
             </div>
         </div>
     </asp:Panel>
