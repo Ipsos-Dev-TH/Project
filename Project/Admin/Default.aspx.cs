@@ -1,71 +1,65 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Web;
-using System.Web.UI;
-using System.Web.UI.WebControls;
+using System;
 using System.Data;
-using System.Configuration;
+using System.Globalization;
 
 namespace Project.Admin
 {
     public partial class Default : System.Web.UI.Page
     {
-        
-        Core Core = new Core();
-        string conn = ConfigurationManager.ConnectionStrings["ProjectConnectionString"].ConnectionString;
         protected void Page_Load(object sender, EventArgs e)
+        {
+            if (!AppAuth.IsAdmin)
+            {
+                Response.Redirect("~/", true);
+                return;
+            }
+
+            if (!IsPostBack)
+            {
+                LoadCounts();
+            }
+        }
+
+        private void LoadCounts()
         {
             try
             {
-                if (!IsPostBack)
+                DataTable dt = AdminDb.Query(@"
+SELECT
+    (SELECT COUNT(*) FROM [dbo].[Project] WHERE Is_Deleted = 0) AS ActiveProjects,
+    (SELECT COUNT(*) FROM [dbo].[Project] WHERE Is_Deleted = 1) AS DeletedProjects,
+    (SELECT COUNT(*) FROM (
+        SELECT Symphony_Key FROM [dbo].[Project]
+        WHERE Is_Deleted = 0 AND Symphony_Key IS NOT NULL
+        GROUP BY Symphony_Key HAVING COUNT(*) > 1) d) AS DuplicateGroups,
+    (SELECT COUNT(*) FROM [dbo].[App_User] WHERE [Status] = 1) AS ActiveUsers");
+
+                if (dt.Rows.Count == 0)
                 {
-                    string Email = Session["Email"].ToString();
+                    return;
+                }
 
+                DataRow row = dt.Rows[0];
+                LblActiveProjects.Text = FormatCount(row["ActiveProjects"]);
+                LblDeletedProjects.Text = FormatCount(row["DeletedProjects"]);
+                LblActiveUsers.Text = FormatCount(row["ActiveUsers"]);
 
-
-
+                int duplicates = Convert.ToInt32(row["DuplicateGroups"]);
+                LblDuplicateGroups.Text = FormatCount(duplicates);
+                if (duplicates > 0)
+                {
+                    LblDuplicateGroups.CssClass = "admin-stat-value admin-stat-alert";
                 }
             }
-            catch { Response.Redirect("/"); }
+            catch (Exception ex)
+            {
+                AdminDb.ShowError(LblMessage, ex);
+            }
         }
 
-        
-        protected void Button10_Click(object sender, EventArgs e)
+        private static string FormatCount(object value)
         {
-            Response.Redirect("/Admin/Edit.aspx?data=Project_Type");
-        }
-
-        protected void Button11_Click(object sender, EventArgs e)
-        {
-            Response.Redirect("/Admin/Edit.aspx?data=Project_SubType&TypeID=" + DropDownList4.SelectedItem.Value);
-        }
-
-        protected void Button12_Click(object sender, EventArgs e)
-        {
-            Response.Redirect("/Admin/Edit.aspx?data=Cost_Type");
-        }
-
-        
-
-        protected void Button15_Click(object sender, EventArgs e)
-        {
-            Response.Redirect("/Admin/Edit.aspx?data=Payment_Report_Period");
-        }
-
-        protected void Button12_Click1(object sender, EventArgs e)
-        {
-            Response.Redirect("/Admin/Edit.aspx?data=Product_Type");
-        }
-
-        protected void Button13_Click(object sender, EventArgs e)
-        {
-            Response.Redirect("/Admin/Edit.aspx?data=ClientName");
-        }
-
-        protected void Button14_Click(object sender, EventArgs e)
-        {
-            Response.Redirect("/Admin/Edit.aspx?data=MarketSector");
+            return Convert.ToInt32(value).ToString("N0", CultureInfo.InvariantCulture);
         }
     }
 }

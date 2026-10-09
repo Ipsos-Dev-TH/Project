@@ -143,6 +143,11 @@
     <Content Include="About.aspx" />
     <Content Include="Admin\Default.aspx" />
     <Content Include="Admin\Edit.aspx" />
+    <Content Include="Admin\Users.aspx" />
+    <Content Include="Admin\Duplicates.aspx" />
+    <Content Include="Admin\DeletedProjects.aspx" />
+    <Content Include="Admin\Logs.aspx" />
+    <Content Include="Admin\UploadHistory.aspx" />
     <Content Include="Contact.aspx" />
     <Content Include="Content\bootstrap-theme.css" />
     <Content Include="Content\bootstrap-theme.min.css" />
@@ -198,6 +203,42 @@
     <Content Include="Site2.Master" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Admin\AdminDb.cs" />
+    <Compile Include="Admin\Users.aspx.cs">
+      <DependentUpon>Users.aspx</DependentUpon>
+      <SubType>ASPXCodeBehind</SubType>
+    </Compile>
+    <Compile Include="Admin\Users.aspx.designer.cs">
+      <DependentUpon>Users.aspx</DependentUpon>
+    </Compile>
+    <Compile Include="Admin\Duplicates.aspx.cs">
+      <DependentUpon>Duplicates.aspx</DependentUpon>
+      <SubType>ASPXCodeBehind</SubType>
+    </Compile>
+    <Compile Include="Admin\Duplicates.aspx.designer.cs">
+      <DependentUpon>Duplicates.aspx</DependentUpon>
+    </Compile>
+    <Compile Include="Admin\DeletedProjects.aspx.cs">
+      <DependentUpon>DeletedProjects.aspx</DependentUpon>
+      <SubType>ASPXCodeBehind</SubType>
+    </Compile>
+    <Compile Include="Admin\DeletedProjects.aspx.designer.cs">
+      <DependentUpon>DeletedProjects.aspx</DependentUpon>
+    </Compile>
+    <Compile Include="Admin\Logs.aspx.cs">
+      <DependentUpon>Logs.aspx</DependentUpon>
+      <SubType>ASPXCodeBehind</SubType>
+    </Compile>
+    <Compile Include="Admin\Logs.aspx.designer.cs">
+      <DependentUpon>Logs.aspx</DependentUpon>
+    </Compile>
+    <Compile Include="Admin\UploadHistory.aspx.cs">
+      <DependentUpon>UploadHistory.aspx</DependentUpon>
+      <SubType>ASPXCodeBehind</SubType>
+    </Compile>
+    <Compile Include="Admin\UploadHistory.aspx.designer.cs">
+      <DependentUpon>UploadHistory.aspx</DependentUpon>
+    </Compile>
     <Compile Include="Admin\Default.aspx.cs">
       <DependentUpon>Default.aspx</DependentUpon>
       <SubType>ASPXCodeBehind</SubType>
