@@ -15,14 +15,33 @@ namespace Project
             System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
             System.Net.ServicePointManager.SecurityProtocol |= System.Net.SecurityProtocolType.Tls12;
 
-            string authError = Security.AuthenConfig.Current.ConfigurationError;
-            if (authError != null)
+            var authConfig = Security.AuthenConfig.Current;
+            if (authConfig.ConfigurationError != null)
             {
                 // Logins are refused with a configuration error until this is fixed.
-                System.Diagnostics.Trace.TraceError("Login configuration invalid: " + authError);
+                System.Diagnostics.Trace.TraceError("Login configuration invalid: " + authConfig.ConfigurationError);
+                LogStartupIssue("AuthConfigError", authConfig.ConfigurationError);
+            }
+            if (authConfig.ConfigurationWarning != null)
+            {
+                System.Diagnostics.Trace.TraceWarning("Login configuration: " + authConfig.ConfigurationWarning);
+                LogStartupIssue("AuthConfigWarning", authConfig.ConfigurationWarning);
             }
             RouteConfig.RegisterRoutes(RouteTable.Routes);
             BundleConfig.RegisterBundles(BundleTable.Bundles);
+        }
+
+        private static void LogStartupIssue(string task, string message)
+        {
+            try
+            {
+                new Core().Logs(System.Configuration.ConfigurationManager.ConnectionStrings["ProjectConnectionString"].ConnectionString,
+                    "Auth", task, message, "system");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Trace.TraceWarning("Could not write startup log: " + ex.GetType().Name);
+            }
         }
 
         void Application_PostAcquireRequestState(object sender, EventArgs e)

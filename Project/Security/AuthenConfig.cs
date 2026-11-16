@@ -29,6 +29,9 @@ namespace Project.Security
         /// <summary>Non-empty when the configuration is invalid; login is refused with a configuration error.</summary>
         public string ConfigurationError { get; private set; }
 
+        /// <summary>Non-empty when a setting was accepted after normalization but should be corrected.</summary>
+        public string ConfigurationWarning { get; private set; }
+
         public bool ApiConfigured => ConfigurationError == null && !string.IsNullOrEmpty(ApiKey);
         public bool DirectoryConfigured => !string.IsNullOrEmpty(DirectoryServer);
         public bool OfflineEnabled => ApiConfigured && OfflineWindowHours > 0 && OfflinePepper != null;
@@ -42,22 +45,25 @@ namespace Project.Security
             config.ApiKey = (settings["AuthenApiKey"] ?? string.Empty).Trim();
             config.UserAgent = "ProjectManagement/2.0 (" + Environment.MachineName + ")";
 
-            string baseUrl = (settings["AuthenApiBaseUrl"] ?? string.Empty).Trim();
-            if (baseUrl.Length == 0)
-            {
-                baseUrl = DefaultBaseUrl;
-            }
+            string configuredUrl = (settings["AuthenApiBaseUrl"] ?? string.Empty).Trim();
+            string baseUrl = configuredUrl.Length == 0 ? DefaultBaseUrl : NormalizeBaseUrl(configuredUrl);
             Uri uri;
             if (!Uri.TryCreate(baseUrl, UriKind.Absolute, out uri)
                 || uri.Scheme != Uri.UriSchemeHttps
                 || (uri.AbsolutePath != "/" && uri.AbsolutePath.Length > 0)
-                || uri.Query.Length > 0)
+                || uri.Query.Length > 0
+                || uri.Fragment.Length > 0)
             {
                 errors.Add("AuthenApiBaseUrl must be an https URL with no path, e.g. " + DefaultBaseUrl);
             }
             else
             {
                 config.ApiBaseUri = uri;
+                if (configuredUrl.Length > 0 && !string.Equals(baseUrl, configuredUrl.TrimEnd('/'), StringComparison.Ordinal))
+                {
+                    config.ConfigurationWarning = "AuthenApiBaseUrl \"" + configuredUrl + "\" was accepted as \""
+                        + baseUrl + "\". Change it to the host only, e.g. " + DefaultBaseUrl;
+                }
             }
 
             // The dedicated fallback server (LDAPS, FQDN) is preferred. The legacy "LDAP" setting keeps
@@ -95,6 +101,20 @@ namespace Project.Security
                 config.ConfigurationError = string.Join("; ", errors);
             }
             return config;
+        }
+
+        /// <summary>
+        /// Older integrations configured the base URL with a trailing "/api" (they appended "/ldap/authenticate").
+        /// Strip trailing slashes and one trailing "/api" so those values keep working; any other path is still rejected.
+        /// </summary>
+        public static string NormalizeBaseUrl(string url)
+        {
+            string value = url.TrimEnd('/');
+            if (value.EndsWith("/api", StringComparison.OrdinalIgnoreCase))
+            {
+                value = value.Substring(0, value.Length - 4).TrimEnd('/');
+            }
+            return value;
         }
     }
 
