@@ -13,6 +13,14 @@ namespace Project
         void Application_Start(object sender, EventArgs e)
         {
             System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
+            System.Net.ServicePointManager.SecurityProtocol |= System.Net.SecurityProtocolType.Tls12;
+
+            string authError = Security.AuthenConfig.Current.ConfigurationError;
+            if (authError != null)
+            {
+                // Logins are refused with a configuration error until this is fixed.
+                System.Diagnostics.Trace.TraceError("Login configuration invalid: " + authError);
+            }
             RouteConfig.RegisterRoutes(RouteTable.Routes);
             BundleConfig.RegisterBundles(BundleTable.Bundles);
         }
@@ -34,6 +42,14 @@ namespace Project
             if (!AppAuth.IsLoggedIn)
             {
                 Response.Redirect("~/Default.aspx", false);
+                Context.ApplicationInstance.CompleteRequest();
+                return;
+            }
+
+            if (AppAuth.IsSessionExpired)
+            {
+                AppAuth.SignOut();
+                Response.Redirect("~/Default.aspx?expired=1", false);
                 Context.ApplicationInstance.CompleteRequest();
                 return;
             }

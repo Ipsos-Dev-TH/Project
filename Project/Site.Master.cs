@@ -16,7 +16,15 @@ namespace Project
                 }
                 if (CurrentUserLabel != null)
                 {
-                    CurrentUserLabel.Text = HttpUtility.HtmlEncode(AppAuth.CurrentEmail + " (" + AppAuth.CurrentRole + ")");
+                    string text = AppAuth.CurrentDisplayName + " (" + AppAuth.CurrentRole + ")";
+                    if (AppAuth.IsDegraded)
+                    {
+                        text += " · โหมดสำรอง";
+                    }
+                    CurrentUserLabel.Text = HttpUtility.HtmlEncode(text);
+                    CurrentUserLabel.ToolTip = AppAuth.IsDegraded
+                        ? "เข้าสู่ระบบผ่านระบบสำรองขณะที่ระบบยืนยันตัวตนขัดข้อง สิทธิ์ Admin ถูกปิดชั่วคราว"
+                        : AppAuth.CurrentEmail;
                 }
             }
 

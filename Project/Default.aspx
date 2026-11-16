@@ -12,33 +12,34 @@
 
             <!-- Login Form -->
             <div class="login-body">
+                <asp:Label ID="LblLoginMessage" runat="server" Visible="false" role="alert" />
+
                 <!-- Username Field -->
                 <div class="form-group">
-                    <label class="form-label">
-                        <i class="fas fa-envelope" style="color: #374ea1; margin-right: 0.5rem;"></i>Username / Email
+                    <label class="form-label" for="<%= TextBox1.ClientID %>">
+                        <i class="fas fa-user" style="color: #374ea1; margin-right: 0.5rem;"></i>Username
                     </label>
                     <asp:TextBox ID="TextBox1" runat="server"
-                        placeholder="Enter your email"
+                        placeholder="firstname.lastname@ipsos.com"
+                        autocomplete="username" autocapitalize="none" spellcheck="false" MaxLength="256"
                         CssClass="login-form-control" />
                 </div>
 
                 <!-- Password Field -->
                 <div class="form-group">
-                    <label class="form-label">
+                    <label class="form-label" for="<%= TextBox2.ClientID %>">
                         <i class="fas fa-lock" style="color: #374ea1; margin-right: 0.5rem;"></i>Password
                     </label>
                     <asp:TextBox ID="TextBox2" runat="server"
                         TextMode="Password"
                         placeholder="Enter your password"
+                        autocomplete="current-password"
                         CssClass="login-form-control" />
                 </div>
 
-                <!-- Remember Me & Forgot Password -->
+                <!-- Forgot Password -->
                 <div class="remember-forgot">
-                    <label class="remember-me">
-                        <input type="checkbox" name="remember-me" />
-                        <span>Remember me</span>
-                    </label>
+                    <span class="login-hint">Use your Ipsos network account</span>
                     <a href="https://ipsos.service-now.com/ess" class="forgot-link">
                         Forgot Password?
                     </a>

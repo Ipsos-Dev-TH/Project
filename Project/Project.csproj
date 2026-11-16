@@ -255,6 +255,11 @@
     </Compile>
     <Compile Include="App_Start\BundleConfig.cs" />
     <Compile Include="Auth.cs" />
+    <Compile Include="Security\AuthenApiClient.cs" />
+    <Compile Include="Security\AuthenConfig.cs" />
+    <Compile Include="Security\DirectoryAuthenticator.cs" />
+    <Compile Include="Security\LoginService.cs" />
+    <Compile Include="Security\OfflineCredentialStore.cs" />
     <Compile Include="About.aspx.cs">
       <DependentUpon>About.aspx</DependentUpon>
       <SubType>ASPXCodeBehind</SubType>

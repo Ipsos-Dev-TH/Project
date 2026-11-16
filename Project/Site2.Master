@@ -145,18 +145,36 @@
             font-size: 0.9rem;
         }
 
-        .remember-me {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            cursor: pointer;
-            color: #2C3E50;
+        .login-hint {
+            color: #7F8C8D;
         }
 
-        .remember-me input {
-            width: 18px;
-            height: 18px;
-            accent-color: #374ea1;
+        .login-message {
+            display: block;
+            margin-bottom: 1.25rem;
+            padding: 0.85rem 1rem;
+            border-radius: 10px;
+            border-left: 4px solid;
+            font-size: 0.95rem;
+            line-height: 1.4;
+        }
+
+        .login-message-error {
+            background: #FDECEA;
+            border-color: #C62828;
+            color: #8E1B1B;
+        }
+
+        .login-message-warning {
+            background: #FFF4E5;
+            border-color: #EF6C00;
+            color: #8A4500;
+        }
+
+        .login-message-info {
+            background: #E8EEF9;
+            border-color: #374ea1;
+            color: #002657;
         }
 
         .forgot-link {
